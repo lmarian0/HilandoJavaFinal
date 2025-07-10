@@ -14,7 +14,7 @@ public class RELog {
     private static final RELog INSTANCE = new RELog();
 
     private RELog() { 
-        this.regexPattern = "(T0)(.?)(T1)(.?)((T2)(.?)(T3)(.?)(T4)|(T5)(.?)(T6)|(T7)(.?)(T8)(.?)(T9)(.?)(T10))(.?)(T11)";
+        this.regexPattern = "(T0).*?(T1).*?((T2).*?(T3).*?(T4)|(T5).*?(T6)|(T7).*?(T8).*?(T9).*?(T10)).*?(T11)";
         this.pattern = Pattern.compile(this.regexPattern);
     }
 
