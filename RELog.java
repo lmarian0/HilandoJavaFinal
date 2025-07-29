@@ -65,6 +65,7 @@ public class RELog {
      */
     public String getGroup() {
         matcherVerification();
+        matcher.find(); // Asegura que hay una coincidencia
         return matcher.group();
     }
 
@@ -74,6 +75,7 @@ public class RELog {
      */
     public String getGroup(int group) {
         matcherVerification();
+        matcher.find(); // Asegura que hay una coincidencia
         return matcher.group(group);
     }
 
@@ -82,6 +84,7 @@ public class RELog {
      */
     public List<String> getAllGroups() {
         matcherVerification();
+        matcher.find(); // Asegura que hay una coincidencia
         int count = matcher.groupCount();
         List<String> groups = new ArrayList<>(count + 1);
         for (int i = 0; i <= count; i++) {
