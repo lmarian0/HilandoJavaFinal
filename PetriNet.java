@@ -128,4 +128,15 @@ public class PetriNet {
 
         return result;
     }
+
+    public boolean willContinue(int[][] matrix) {
+    
+        int[][] nextMarking = matrix;
+        for (int i = 0; i < 12; i++) {
+            if (nextMarking[i][0] < 0) {
+                return true;
+            }
+        }
+        return false;
+    }
 }
