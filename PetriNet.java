@@ -28,16 +28,16 @@ public class PetriNet {
      * P0: 3 tokens (Arribos pendientes) [cite: 1] P2: 1 token (El Bus está
      * libre) [cite: 50] P6: 1 token (La CPU está libre) [cite: 51]
      */
-    public static final int[] INITIAL_MARKING = {3, 0, 1, 0, 0, 0, 1, 0, 0, 0, 0, 0};
+    public static final int[][] INITIAL_MARKING = {{3}, {0}, {1}, {0}, {0}, {0}, {1}, {0}, {0}, {0}, {0}, {0}};
 
     private int[][] incidenceMatrix = INCIDENCE_MATRIX;
-    private int[] currentMarking = INITIAL_MARKING;
+    private int[][] currentMarking = INITIAL_MARKING;
     private int transitions;
 
-    public PetriNet(int[][] incidenceMatrix, int[] initialMarking) {
-        this.incidenceMatrix = incidenceMatrix;
-        this.currentMarking = initialMarking;
-        this.transitions = incidenceMatrix.length;
+    public PetriNet() {
+        this.incidenceMatrix = INCIDENCE_MATRIX;
+        this.currentMarking = INITIAL_MARKING;
+        this.transitions = INCIDENCE_MATRIX[0].length;
     }
 
     public static int[][] multiplyMatrix(int[][] m1, int[][] m2) {
@@ -83,13 +83,15 @@ public class PetriNet {
     }
 
     public static void imprimirMatriz(int[][] matriz) {
+        System.out.print("[ "); 
+        
         for (int i = 0; i < matriz.length; i++) {
             for (int j = 0; j < matriz[i].length; j++) {
                 System.out.print(matriz[i][j] + " ");
             }
-            System.out.println();
         }
-    }
+        System.out.print("]"); 
+}
 
     public static int[][] getNextMarking(int transition) {
         int[][] fireMatrix = new int[INCIDENCE_MATRIX[0].length][1];
@@ -104,9 +106,26 @@ public class PetriNet {
             }
         }
 
-        int[] multiply = PetriNet.multiplyMatrix(PetriNet.INCIDENCE_MATRIX, fireMatrix);
+        int[][] multiply = PetriNet.multiplyMatrix(PetriNet.INCIDENCE_MATRIX, fireMatrix);
+        return multiply;
     }
-}
-    
 
+    public int[][] nextIncidentMatrix(int transition) {
+        int[][] W = INCIDENCE_MATRIX;
+        int[][] m_i = currentMarking;
+        int[][] s = new int[12][1];
+            for(int j=0; j<12; j++){
+                if(j == transition){
+                    s[j][0] = 1; 
+                } else {
+                    s[j][0] = 0;
+                }
+            }
+
+        int[][] mult = PetriNet.multiplyMatrix(W, s);
+        int[][] result = PetriNet.addMatrix(m_i, mult);
+        currentMarking = result;
+
+        return result;
+    }
 }

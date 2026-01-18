@@ -1,3 +1,5 @@
+
+
 public class Main {
     public static void main(String[] args) {
         // // 1. Tomar tiempo de inicio (en milisegundos)
@@ -43,26 +45,14 @@ public class Main {
         //     System.out.println("❌ El invariante NO se cumple");
         // }
 
-        int[][] matriz1 = {
-        {1, 2, 3},
-        {4, 5, 6}
-    };
-    
-    int[][] matriz2 = {
-        {7, 8},
-        {9, 10},
-        {11, 12}
-    };
-    
-    System.out.println("Matriz 1 (2x3):");
-    PetriNet.imprimirMatriz(matriz1);
-    
-    System.out.println("\nMatriz 2 (3x2):");
-    PetriNet.imprimirMatriz(matriz2);
-    
-    int[][] producto = PetriNet.multiplyMatrix(matriz1, matriz2);
-    
-    System.out.println("\nResultado de la multiplicación (2x2):");
-    PetriNet.imprimirMatriz(producto);
+
+    System.out.println("Proxima matriz");
+    PetriNet petriNet = new PetriNet();
+    for (int i = 0; i < 12; i++) {
+        PetriNet.imprimirMatriz(petriNet.nextIncidentMatrix(i));
+        System.out.println("----");
     }
+    
+    
+}
 }
