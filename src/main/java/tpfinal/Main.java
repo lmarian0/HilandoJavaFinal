@@ -1,4 +1,9 @@
+package tpfinal;
 
+import tpfinal.utils.RELog;
+import tpfinal.monitor.Monitor;
+import tpfinal.rdp.PetriNet;
+import tpfinal.Exceptions.InvalidFireException;
 
 public class Main {
     public static void main(String[] args) {
@@ -45,26 +50,21 @@ public class Main {
         //     System.out.println("❌ El invariante NO se cumple");
         // }
 
-
-    System.out.println("Proxima matriz");
-    PetriNet petriNet = new PetriNet();
-    for (int i = 0; i < 12; i++) {
-        int [][] aux = petriNet.nextIncidentMatrix(i);
-        PetriNet.imprimirMatriz(aux);
-
-        if(petriNet.willContinue(aux)){
-            System.out.println("Condición para continuar no se cumple.");
-            break;    
+    System.out.println("Initial marking:");
+    PetriNet.printMatrix(PetriNet.INITIAL_MARKING);
+    System.out.println("\nNext marking after firing each transition:");
+    for (int i = 0; i < PetriNet.NUM_PLACES; i++) {
+        int [][] aux = null;
+        try{
+            aux = PetriNet.getNextMarking(i);
+        }catch(InvalidFireException e){
+            System.out.println(e.getMessage());
+            break;
         }
-        else{
-            System.out.println("Condición para continuar se cumple.");
-        }
+        PetriNet.setCurrentMarking(aux);
+        PetriNet.printMatrix(aux);
+        System.out.println("It's a valid marking.");
     }
-    
-    
-    
-
-    
     
 }
 }
