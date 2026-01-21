@@ -1,5 +1,6 @@
 package tpfinal.rdp;
 import tpfinal.utils.MathUtils;
+import tpfinal.Exceptions.InvalidFireException;
 
 public class PetriNet {
 
@@ -32,12 +33,15 @@ public class PetriNet {
      */
     public static final int[][] INITIAL_MARKING = {{3}, {0}, {1}, {0}, {0}, {0}, {1}, {0}, {0}, {0}, {0}, {0}};
 
-    private int[][] incidenceMatrix = INCIDENCE_MATRIX;
     private static int[][] currentMarking = INITIAL_MARKING;
     public static final int NUM_TRANSITIONS = INCIDENCE_MATRIX[0].length;
     public static final int NUM_PLACES = INCIDENCE_MATRIX.length;
 
 
+    /**
+     * This method prints the given matrix to the console.
+     * @param matrix The matrix to be printed
+     */
     public static void printMatrix(int[][] matrix) {
         System.out.print("[ "); 
         
@@ -47,23 +51,13 @@ public class PetriNet {
         System.out.print("]"); 
     }
 
-    public static int[][] getNextMarking(int transition) {
-        int[][] fireMatrix = new int[NUM_TRANSITIONS][1];
-
-        // before j < 14
-        for (int j = 0; j < NUM_TRANSITIONS; j++) {
-                if (j == transition) {
-                    fireMatrix[j][0] = 1;
-                } else {
-                    fireMatrix[j][0] = 0;
-                }
-            }
-
-        int[][] multiply = MathUtils.multiplyMatrix(PetriNet.INCIDENCE_MATRIX, fireMatrix);
-        return multiply;
-    }
-
-    public static int[][] nextIncidentMatrix(int transition) {
+    /**
+     * Calculates the next marking of the Petri net after firing a given transition
+     * applying the foundamental equation:  M(i+1) = M(i) + I * S
+     * @param transition The transition to be fired
+     * @return The resulting marking matrix after firing the transition
+     */
+    public static int[][] getNextMarking(int transition) throws InvalidFireException {
         int[][] W = INCIDENCE_MATRIX;
         int[][] m_i = currentMarking;
         int[][] s = new int[NUM_TRANSITIONS][1]; //before [12][1]
@@ -77,19 +71,23 @@ public class PetriNet {
 
         int[][] mult = MathUtils.multiplyMatrix(W, s);
         int[][] result = MathUtils.addMatrix(m_i, mult);
-        currentMarking = result;
-
+        if(!isValidMarking(result)) {
+            throw new InvalidFireException("Firing transition " + transition + " results in an invalid marking.");
+        }
         return result;
     }
 
-    public static boolean willContinue(int[][] matrix) {
+    private static boolean isValidMarking(int[][] matrix) {
     
-        int[][] nextMarking = matrix;
-        for (int i = 0; i < NUM_TRANSITIONS; i++) {  //before i<12
-            if (nextMarking[i][0] < 0) {
-                return true;
+        for (int i = 0; i < NUM_PLACES; i++) {  //before i<12
+            if (matrix[i][0] < 0) {
+                return false;
             }
         }
-        return false;
+        return true;
+    }
+
+    public static void setCurrentMarking(int[][] newMarking) {
+        currentMarking = newMarking;
     }
 }
