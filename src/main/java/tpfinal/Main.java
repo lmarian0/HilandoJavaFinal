@@ -51,12 +51,11 @@ public class Main {
 
 
     System.out.println("Proxima matriz");
-    PetriNet petriNet = new PetriNet();
-    for (int i = 0; i < 12; i++) {
-        int [][] aux = petriNet.nextIncidentMatrix(i);
+    for (int i = 0; i < PetriNet.NUM_PLACES; i++) {
+        int [][] aux = PetriNet.nextIncidentMatrix(i);
         PetriNet.printMatrix(aux);
 
-        if(petriNet.willContinue(aux)){
+        if(PetriNet.willContinue(aux)){
             System.out.println("Condición para continuar no se cumple.");
             break;    
         }

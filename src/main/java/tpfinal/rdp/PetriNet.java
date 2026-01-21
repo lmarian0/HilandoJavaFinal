@@ -33,44 +33,37 @@ public class PetriNet {
     public static final int[][] INITIAL_MARKING = {{3}, {0}, {1}, {0}, {0}, {0}, {1}, {0}, {0}, {0}, {0}, {0}};
 
     private int[][] incidenceMatrix = INCIDENCE_MATRIX;
-    private int[][] currentMarking = INITIAL_MARKING;
-    private static  final int NUM_TRANSITIONS = INCIDENCE_MATRIX[0].length;
+    private static int[][] currentMarking = INITIAL_MARKING;
+    public static final int NUM_TRANSITIONS = INCIDENCE_MATRIX[0].length;
+    public static final int NUM_PLACES = INCIDENCE_MATRIX.length;
 
-    public PetriNet() {
-        this.incidenceMatrix = INCIDENCE_MATRIX;
-        this.currentMarking = INITIAL_MARKING;
-    }
 
     public static void printMatrix(int[][] matrix) {
         System.out.print("[ "); 
         
         for (int i = 0; i < matrix.length; i++) {
-            for (int j = 0; j < matrix[i].length; j++) {
-                System.out.print(matrix[i][j] + " ");
-            }
+            System.out.print(matrix[i][0] + " ");
         }
         System.out.print("]"); 
-}
+    }
 
     public static int[][] getNextMarking(int transition) {
         int[][] fireMatrix = new int[NUM_TRANSITIONS][1];
 
         // before j < 14
-        for (int i = 0; i < 1; i++) {
-            for (int j = 0; j < NUM_TRANSITIONS; j++) {
+        for (int j = 0; j < NUM_TRANSITIONS; j++) {
                 if (j == transition) {
-                    fireMatrix[j][i] = 1;
+                    fireMatrix[j][0] = 1;
                 } else {
-                    fireMatrix[j][i] = 0;
+                    fireMatrix[j][0] = 0;
                 }
             }
-        }
 
         int[][] multiply = MathUtils.multiplyMatrix(PetriNet.INCIDENCE_MATRIX, fireMatrix);
         return multiply;
     }
 
-    public int[][] nextIncidentMatrix(int transition) {
+    public static int[][] nextIncidentMatrix(int transition) {
         int[][] W = INCIDENCE_MATRIX;
         int[][] m_i = currentMarking;
         int[][] s = new int[NUM_TRANSITIONS][1]; //before [12][1]
@@ -89,7 +82,7 @@ public class PetriNet {
         return result;
     }
 
-    public boolean willContinue(int[][] matrix) {
+    public static boolean willContinue(int[][] matrix) {
     
         int[][] nextMarking = matrix;
         for (int i = 0; i < NUM_TRANSITIONS; i++) {  //before i<12
