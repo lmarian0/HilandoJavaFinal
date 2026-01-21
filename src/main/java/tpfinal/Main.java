@@ -54,7 +54,7 @@ public class Main {
     PetriNet petriNet = new PetriNet();
     for (int i = 0; i < 12; i++) {
         int [][] aux = petriNet.nextIncidentMatrix(i);
-        PetriNet.imprimirMatriz(aux);
+        PetriNet.printMatrix(aux);
 
         if(petriNet.willContinue(aux)){
             System.out.println("Condición para continuar no se cumple.");

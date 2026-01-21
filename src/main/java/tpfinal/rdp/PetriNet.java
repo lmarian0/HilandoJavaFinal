@@ -34,30 +34,30 @@ public class PetriNet {
 
     private int[][] incidenceMatrix = INCIDENCE_MATRIX;
     private int[][] currentMarking = INITIAL_MARKING;
-    private int transitions;
+    private static  final int NUM_TRANSITIONS = INCIDENCE_MATRIX[0].length;
 
     public PetriNet() {
         this.incidenceMatrix = INCIDENCE_MATRIX;
         this.currentMarking = INITIAL_MARKING;
-        this.transitions = INCIDENCE_MATRIX[0].length;
     }
 
-    public static void imprimirMatriz(int[][] matriz) {
+    public static void printMatrix(int[][] matrix) {
         System.out.print("[ "); 
         
-        for (int i = 0; i < matriz.length; i++) {
-            for (int j = 0; j < matriz[i].length; j++) {
-                System.out.print(matriz[i][j] + " ");
+        for (int i = 0; i < matrix.length; i++) {
+            for (int j = 0; j < matrix[i].length; j++) {
+                System.out.print(matrix[i][j] + " ");
             }
         }
         System.out.print("]"); 
 }
 
     public static int[][] getNextMarking(int transition) {
-        int[][] fireMatrix = new int[INCIDENCE_MATRIX[0].length][1];
+        int[][] fireMatrix = new int[NUM_TRANSITIONS][1];
 
+        // before j < 14
         for (int i = 0; i < 1; i++) {
-            for (int j = 0; j < 14; j++) {
+            for (int j = 0; j < NUM_TRANSITIONS; j++) {
                 if (j == transition) {
                     fireMatrix[j][i] = 1;
                 } else {
@@ -73,8 +73,8 @@ public class PetriNet {
     public int[][] nextIncidentMatrix(int transition) {
         int[][] W = INCIDENCE_MATRIX;
         int[][] m_i = currentMarking;
-        int[][] s = new int[12][1];
-            for(int j=0; j<12; j++){
+        int[][] s = new int[NUM_TRANSITIONS][1]; //before [12][1]
+            for(int j=0; j<NUM_TRANSITIONS; j++){ //before j<12
                 if(j == transition){
                     s[j][0] = 1; 
                 } else {
@@ -92,7 +92,7 @@ public class PetriNet {
     public boolean willContinue(int[][] matrix) {
     
         int[][] nextMarking = matrix;
-        for (int i = 0; i < 12; i++) {
+        for (int i = 0; i < NUM_TRANSITIONS; i++) {  //before i<12
             if (nextMarking[i][0] < 0) {
                 return true;
             }
