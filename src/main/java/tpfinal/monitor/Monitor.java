@@ -3,6 +3,7 @@ import java.util.concurrent.locks.ReentrantLock;
 
 import tpfinal.Exceptions.InvalidFireException;
 import tpfinal.rdp.PetriNet;
+import tpfinal.rdp.Transitions;
 
 
 public class Monitor implements MonitorInterface{
@@ -14,9 +15,10 @@ public class Monitor implements MonitorInterface{
         lock.lock();
         boolean key = true;
         boolean validFiring;
+        Transitions transitionEnum = Transitions.fromIndex(transition);
         
         while(key){
-            validFiring = PetriNet.fire(transition);
+            validFiring = PetriNet.fire(transitionEnum);
             if(validFiring){
                 // Check sensibilized transitions (Vs)
                 // Check who is waiting (Wt)

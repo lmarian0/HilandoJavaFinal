@@ -1,5 +1,9 @@
 package tpfinal.rdp;
 import tpfinal.utils.MathUtils;
+
+import java.util.HashSet;
+import java.util.Set;
+
 import tpfinal.Exceptions.InvalidFireException;
 
 public class PetriNet {
@@ -24,24 +28,6 @@ public class PetriNet {
         {0, 0, 0, 0, 0, 0, 0, 0, 1, -1, 0, 0}, // P9 (Alta 2)
         {0, 0, 0, 0, 0, 0, 0, 0, 0, 1, -1, 0}, // P10 (Alta 3)
         {0, 0, 0, 0, 1, 0, 1, 0, 0, 0, 1, -1} // P11 (Salida)
-    };
-
-    /**
-     * Transition firing times in milliseconds
-     */
-    public static final int[] TIME_TRANSITIONS = {
-        0,  // T0
-        3,  // T1
-        0,  // T2
-        2,  // T3
-        6,  // T4
-        0,  // T5
-        7,  // T6
-        0,  // T7
-        5,  // T8
-        4,  // T9
-        2,  // T10
-        0   // T11
     };
 
     /**
@@ -115,11 +101,11 @@ public class PetriNet {
      * @param transition The transition to be fired
      * @return true if the transition was successfully fired, false otherwise
      */
-    public static boolean fire(int transition) {
+    public static boolean fire(Transitions transition) {
         int[][] nextMarking = currentMarking;
         try{
-            nextMarking = getNextMarking(transition);
-            Thread.sleep(TIME_TRANSITIONS[transition]);
+            nextMarking = getNextMarking(transition.getIndex());
+            Thread.sleep(transition.getTime());
             setCurrentMarking(nextMarking);
             return true;
         } catch (InvalidFireException e){
@@ -128,5 +114,33 @@ public class PetriNet {
             Thread.currentThread().interrupt();
             return false;
         }
+    }
+
+    /**
+     * Checks if a transition is enabled based on the current marking.
+     * @param transition The transition to be checked
+     * @return true if the transition is enabled, false otherwise
+     */
+    private static boolean isTransitionEnabled(int transition) {
+        try {
+            getNextMarking(transition);
+            return true;
+        } catch (InvalidFireException e) {
+            return false;
+        }
+    }
+
+    /**
+     * Obtains the set of enabled transitions based on the current marking.
+     * @return A set of enabled transitions
+     */
+    public static Set<Transitions> getEnabledTransitions() {
+        Set<Transitions> enabledTransitions = new HashSet<>();
+        for (int t = 0; t < NUM_TRANSITIONS; t++) {
+            if(isTransitionEnabled(t)) {
+                enabledTransitions.add(Transitions.fromIndex(t));
+            }
+        }
+        return enabledTransitions;
     }
 }
