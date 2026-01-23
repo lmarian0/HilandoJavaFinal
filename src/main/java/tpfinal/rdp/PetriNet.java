@@ -27,6 +27,24 @@ public class PetriNet {
     };
 
     /**
+     * Transition firing times in milliseconds
+     */
+    public static final int[] TIME_TRANSITIONS = {
+        0,  // T0
+        3,  // T1
+        0,  // T2
+        2,  // T3
+        6,  // T4
+        0,  // T5
+        7,  // T6
+        0,  // T7
+        5,  // T8
+        4,  // T9
+        2,  // T10
+        0   // T11
+    };
+
+    /**
      * Marcado Inicial (M0) Basado en los puntos negros visibles en la Figura 1.
      * P0: 3 tokens (Arribos pendientes) [cite: 1] P2: 1 token (El Bus está
      * libre) [cite: 50] P6: 1 token (La CPU está libre) [cite: 51]
@@ -89,5 +107,26 @@ public class PetriNet {
 
     public static void setCurrentMarking(int[][] newMarking) {
         currentMarking = newMarking;
+    }
+
+    /**
+     * Fires the given transition if it's valid, updates the current marking,
+     * and simulates the transition time.
+     * @param transition The transition to be fired
+     * @return true if the transition was successfully fired, false otherwise
+     */
+    public static boolean fire(int transition) {
+        int[][] nextMarking = currentMarking;
+        try{
+            nextMarking = getNextMarking(transition);
+            Thread.sleep(TIME_TRANSITIONS[transition]);
+            setCurrentMarking(nextMarking);
+            return true;
+        } catch (InvalidFireException e){
+            return false;
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+            return false;
+        }
     }
 }
