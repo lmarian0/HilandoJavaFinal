@@ -1,4 +1,7 @@
 package tpfinal.utils;
+import java.util.HashSet;
+import java.util.Set;
+import tpfinal.rdp.Transitions;
 
 public class MathUtils {
     public static int[][] multiplyMatrix(int[][] m1, int[][] m2) {
@@ -41,5 +44,11 @@ public class MathUtils {
         }
 
         return result;
+    }
+
+    public static Set<Transitions> intersectSets(Set<Transitions> set1, Set<Transitions> set2) {
+        Set<Transitions> intersection = new HashSet<>(set1);
+        intersection.retainAll(set2);
+        return intersection;
     }
 }
