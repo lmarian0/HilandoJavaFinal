@@ -1,5 +1,9 @@
 package tpfinal.rdp;
 import tpfinal.utils.MathUtils;
+
+import java.util.HashSet;
+import java.util.Set;
+
 import tpfinal.Exceptions.InvalidFireException;
 
 public class PetriNet {
@@ -89,5 +93,54 @@ public class PetriNet {
 
     public static void setCurrentMarking(int[][] newMarking) {
         currentMarking = newMarking;
+    }
+
+    /**
+     * Fires the given transition if it's valid, updates the current marking,
+     * and simulates the transition time.
+     * @param transition The transition to be fired
+     * @return true if the transition was successfully fired, false otherwise
+     */
+    public static boolean fire(Transitions transition) {
+        int[][] nextMarking = currentMarking;
+        try{
+            nextMarking = getNextMarking(transition.getIndex());
+            Thread.sleep(transition.getTime());
+            setCurrentMarking(nextMarking);
+            return true;
+        } catch (InvalidFireException e){
+            return false;
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+            return false;
+        }
+    }
+
+    /**
+     * Checks if a transition is enabled based on the current marking.
+     * @param transition The transition to be checked
+     * @return true if the transition is enabled, false otherwise
+     */
+    private static boolean isTransitionEnabled(int transition) {
+        try {
+            getNextMarking(transition);
+            return true;
+        } catch (InvalidFireException e) {
+            return false;
+        }
+    }
+
+    /**
+     * Obtains the set of enabled transitions based on the current marking.
+     * @return A set of enabled transitions
+     */
+    public static Set<Transitions> getEnabledTransitions() {
+        Set<Transitions> enabledTransitions = new HashSet<>();
+        for (int t = 0; t < NUM_TRANSITIONS; t++) {
+            if(isTransitionEnabled(t)) {
+                enabledTransitions.add(Transitions.fromIndex(t));
+            }
+        }
+        return enabledTransitions;
     }
 }
