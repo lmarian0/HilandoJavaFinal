@@ -105,13 +105,9 @@ public class PetriNet {
         int[][] nextMarking = currentMarking;
         try{
             nextMarking = getNextMarking(transition.getIndex());
-            Thread.sleep(transition.getTime());
             setCurrentMarking(nextMarking);
             return true;
         } catch (InvalidFireException e){
-            return false;
-        } catch (InterruptedException e) {
-            Thread.currentThread().interrupt();
             return false;
         }
     }

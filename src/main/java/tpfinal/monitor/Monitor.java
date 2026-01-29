@@ -45,10 +45,9 @@ public class Monitor implements MonitorInterface{
                     if(!m.isEmpty()){
                         int selectedTransition = policy.selectTransition(m);
                         queue.release(selectedTransition);
-                        return true; //do release in finally block
-                    }else{
-                        key = false;
                     }
+                    // Exit the loop after successful firing
+                    key = false;
                 }else{
                     // Invalid firing. Release lock and go to the queue to wait
                     queue.acquire(transition); // release lock inside acquire method
@@ -56,6 +55,14 @@ public class Monitor implements MonitorInterface{
             }
         }finally{
             lock.unlock();
+        }
+        
+        // Sleep OUTSIDE the monitor (lock already released)
+        try {
+            Thread.sleep(transitionEnum.getTime());
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+            return false;
         }
         return true;
     }
