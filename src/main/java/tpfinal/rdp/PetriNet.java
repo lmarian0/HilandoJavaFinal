@@ -37,10 +37,18 @@ public class PetriNet {
      */
     public static final int[][] INITIAL_MARKING = {{3}, {0}, {1}, {0}, {0}, {0}, {1}, {0}, {0}, {0}, {0}, {0}};
 
-    private static int[][] currentMarking = INITIAL_MARKING;
+    private static int[][] currentMarking = deepCopy(INITIAL_MARKING);
     public static final int NUM_TRANSITIONS = INCIDENCE_MATRIX[0].length;
     public static final int NUM_PLACES = INCIDENCE_MATRIX.length;
 
+    // Copia el marcado inicial para no modificar su referencia
+    private static int[][] deepCopy(int[][] matrix) {
+        int[][] copy = new int[matrix.length][];
+        for (int i = 0; i < matrix.length; i++) {
+            copy[i] = matrix[i].clone();
+        }
+        return copy;
+    }
 
     /**
      * This method prints the given matrix to the console.
