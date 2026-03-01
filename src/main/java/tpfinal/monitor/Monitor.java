@@ -47,7 +47,7 @@ public class Monitor implements MonitorInterface{
                         queue.release(selectedTransition);
                     }
                     // Exit the loop after successful firing
-                    key = false;
+                    key = false;  //review
                 }else{
                     // Invalid firing. Release lock and go to the queue to wait
                     queue.acquire(transition); // release lock inside acquire method

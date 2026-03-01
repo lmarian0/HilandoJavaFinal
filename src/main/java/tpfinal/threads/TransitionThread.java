@@ -7,6 +7,8 @@ public class TransitionThread implements Runnable{
 
     private Monitor monitor;
     private Transitions[] secuencia;
+
+    // Number of times the sequence will be executed
     private int fireAmount;
 
     public void run(){
