@@ -4,67 +4,56 @@ import tpfinal.utils.RELog;
 import tpfinal.monitor.Monitor;
 import tpfinal.rdp.PetriNet;
 import tpfinal.Exceptions.InvalidFireException;
+import tpfinal.threads.ThreadSecuence;
+import tpfinal.threads.TransitionThread;
+import tpfinal.utils.Logger;
+import java.util.Arrays;
+import java.util.concurrent.atomic.AtomicInteger;
 
 public class Main {
     public static void main(String[] args) {
-        // // 1. Tomar tiempo de inicio (en milisegundos)
-        // long startTime = System.currentTimeMillis();
+        Monitor monitor = new Monitor();
+        Logger logger = new Logger();
+        int totalInvariants = 200;
 
-        // try {
-        //     // Aquí inicias tu Monitor, Hilos, etc.
-        //     Monitor monitor = new Monitor();
-        //     // ... esperar a que terminen los hilos (join) ...
-            
-        // } catch (Exception e) {
-        //     e.printStackTrace();
-        // }
+        AtomicInteger counter = new AtomicInteger(0);
 
-        // // 2. Tomar tiempo de fin
-        // long endTime = System.currentTimeMillis();
-
-        // // 3. Calcular duración
-        // long duration = endTime - startTime;
-        
-        // System.out.println("Tiempo de ejecución: " + duration + " ms");
-        
-        // // Verificación para el Requisito 8.a (20-40 seg) [cite: 127]
-        // if (duration >= 20000 && duration <= 40000) {
-        //     System.out.println("✅ Tiempo válido (entre 20s y 40s)");
-        // } else {
-        //     System.out.println("❌ Tiempo inválido (fuera de rango)");
-        // }
-        
-        // // 4. Verificar el invariante con RELog
-        // System.out.println("\n========== VERIFICACIÓN DE INVARIANTE ==========");
-        // RELog reLog = new RELog();
-        
-        // // Cargar el archivo de log (ajusta el nombre del archivo según corresponda)
-        // reLog.loadLog("log.txt");
-        
-        // // Verificar si el log cumple con el invariante
-        // boolean invariantValid = reLog.checkInvariant();
-        
-        // if (invariantValid) {
-        //     System.out.println("✅ El invariante se cumple correctamente");
-        // } else {
-        //     System.out.println("❌ El invariante NO se cumple");
-        // }
-
-    System.out.println("Initial marking:");
-    PetriNet.printMatrix(PetriNet.INITIAL_MARKING);
-    System.out.println("\nNext marking after firing each transition:");
-    for (int i = 0; i < PetriNet.NUM_PLACES; i++) {
-        int [][] aux = null;
-        try{
-            aux = PetriNet.getNextMarking(i);
-        }catch(InvalidFireException e){
-            System.out.println(e.getMessage());
-            break;
-        }
-        PetriNet.setCurrentMarking(aux);
-        PetriNet.printMatrix(aux);
-        System.out.println("It's a valid marking.");
-    }
+        // Entrada y salida: cantidad fija de 200
+        Thread th_in = new Thread(new TransitionThread(monitor, ThreadSecuence.getSecuenceFromThreadId(0), logger, totalInvariants), "HiloEntrada" );
+        Thread th_out = new Thread(new TransitionThread(monitor, ThreadSecuence.getSecuenceFromThreadId(4), logger, totalInvariants), "HiloSalida" );
     
-}
+        // Procesamiento: comparten contador, 200 entre los 3
+        Thread th_medium = new Thread(new TransitionThread(monitor, ThreadSecuence.getSecuenceFromThreadId(1), logger, counter, totalInvariants), "HiloMedia" );
+        Thread th_simple = new Thread(new TransitionThread(monitor, ThreadSecuence.getSecuenceFromThreadId(2), logger, counter, totalInvariants), "HiloSimple" );
+        Thread th_high = new Thread(new TransitionThread(monitor, ThreadSecuence.getSecuenceFromThreadId(3), logger, counter, totalInvariants), "HiloAlta" );
+
+        Long startTime = System.currentTimeMillis();
+
+        th_in.start();
+        th_out.start();
+        th_medium.start();
+        th_simple.start();
+        th_high.start();
+
+        try {
+            th_in.join();
+            th_out.join();
+            th_medium.join();
+            th_simple.join();
+            th_high.join();
+        } catch (InterruptedException e) {
+            e.printStackTrace();
+        }
+        
+        long duration = System.currentTimeMillis() - startTime;
+        System.out.println("Tiempo de ejecucion: " + duration + " ms");
+
+        logger.writeToFile("log.txt");
+
+        RELog reLog = new RELog();
+        reLog.loadLog("log.txt");
+        reLog.checkInvariant();
+        
+        System.out.println("Programa finalizado. No quedan hilos activos.");
+    }
 }
