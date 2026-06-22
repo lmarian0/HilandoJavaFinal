@@ -1,2 +1,4 @@
 /.vscode
 machete.txt
+/target
+*.class

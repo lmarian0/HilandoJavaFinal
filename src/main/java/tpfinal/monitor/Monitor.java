@@ -5,6 +5,7 @@ import java.util.concurrent.locks.ReentrantLock;
 
 import tpfinal.rdp.PetriNet;
 import tpfinal.rdp.Transitions;
+import tpfinal.utils.Logger;
 import tpfinal.utils.MathUtils;
 
 
@@ -13,15 +14,20 @@ public class Monitor implements MonitorInterface{
     private final ReentrantLock lock = new ReentrantLock(true);
     private final Queue queue;
     private final Policy policy;
+    private final Logger logger;
 
     public Monitor() {
-        this.queue = new Queue(PetriNet.NUM_TRANSITIONS, lock);
-        this.policy = new RandomPolicy();
+        this(new RandomPolicy(), null);
     }
 
     public Monitor(Policy policy) {
+        this(policy, null);
+    }
+
+    public Monitor(Policy policy, Logger logger) {
         this.queue = new Queue(PetriNet.NUM_TRANSITIONS, lock);
         this.policy = policy;
+        this.logger = logger;
     }
 
     @Override
@@ -35,6 +41,11 @@ public class Monitor implements MonitorInterface{
             while(key){
                 validFiring = PetriNet.fire(transitionEnum);
                 if(validFiring){
+                    // Registrar el disparo DENTRO del monitor para que el log
+                    // refleje fielmente el orden real de disparo (traza atómica).
+                    if (logger != null) {
+                        logger.log(transitionEnum.getName());
+                    }
                     // Check sensibilized transitions (Vs)
                     Set<Transitions> enabledTransitions = PetriNet.getEnabledTransitions();
                     // Check who is waiting (Wt)

@@ -41,6 +41,21 @@ public class PetriNet {
     public static final int NUM_TRANSITIONS = INCIDENCE_MATRIX[0].length;
     public static final int NUM_PLACES = INCIDENCE_MATRIX.length;
 
+    /**
+     * Invariantes de plaza (P-Invariantes) obtenidos con PIPE.
+     * Cada fila es el vector de coeficientes sobre las plazas P0..P11.
+     *   PI1: P0+P1+P3+P4+P5+P7+P8+P9+P10+P11 = 3  (conservación de datos)
+     *   PI2: P1+P2 = 1                            (bus de acceso, recurso)
+     *   PI3: P4+P5+P6+P7+P8+P9+P10 = 1            (unidad de procesamiento, recurso)
+     */
+    private static final int[][] P_INVARIANTS = {
+        //P0 P1 P2 P3 P4 P5 P6 P7 P8 P9 P10 P11
+        { 1, 1, 0, 1, 1, 1, 0, 1, 1, 1, 1, 1 },
+        { 0, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0 },
+        { 0, 0, 0, 0, 1, 1, 1, 1, 1, 1, 1, 0 }
+    };
+    private static final int[] P_INVARIANTS_CONST = { 3, 1, 1 };
+
     // Copia el marcado inicial para no modificar su referencia
     private static int[][] deepCopy(int[][] matrix) {
         int[][] copy = new int[matrix.length][];
@@ -114,10 +129,37 @@ public class PetriNet {
         try{
             nextMarking = getNextMarking(transition.getIndex());
             setCurrentMarking(nextMarking);
+            // Requerimiento 10: verificar P-invariantes luego de cada disparo
+            verifyPInvariants(transition);
             return true;
         } catch (InvalidFireException e){
             return false;
         }
+    }
+
+    /**
+     * Verifica que el marcado actual cumpla con TODOS los invariantes de plaza.
+     * Se ejecuta luego de cada disparo exitoso (requerimiento 10). Si alguno
+     * no se cumple, la red habría perdido una propiedad estructural, por lo que
+     * se aborta la ejecución para evidenciar el error.
+     * @param transition transición recién disparada (solo para el mensaje de error)
+     * @return true si todos los P-invariantes se cumplen
+     */
+    public static boolean verifyPInvariants(Transitions transition) {
+        for (int inv = 0; inv < P_INVARIANTS.length; inv++) {
+            int sum = 0;
+            for (int p = 0; p < NUM_PLACES; p++) {
+                sum += P_INVARIANTS[inv][p] * currentMarking[p][0];
+            }
+            if (sum != P_INVARIANTS_CONST[inv]) {
+                String msg = "VIOLACION P-Invariante " + (inv + 1) + " tras disparar "
+                        + transition.getName() + ": suma=" + sum
+                        + " (esperado " + P_INVARIANTS_CONST[inv] + ")";
+                System.err.println(msg);
+                throw new IllegalStateException(msg);
+            }
+        }
+        return true;
     }
 
     /**
