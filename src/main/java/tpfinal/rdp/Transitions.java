@@ -1,29 +1,32 @@
 package tpfinal.rdp;
 
 public enum Transitions {
-    // Transiciones temporales (enunciado): T1, T3, T4, T6, T8, T9, T10 -> tiempo > 0 (ms)
-    // Transiciones inmediatas: T0, T2, T5, T7, T11 -> tiempo 0
-    T0(0, "T0", 0),
-    T1(1, "T1", 25),
-    T2(2, "T2", 0),
-    T3(3, "T3", 180),
-    T4(4, "T4", 180),
-    T5(5, "T5", 0),
-    T6(6, "T6", 360),
-    T7(7, "T7", 0),
-    T8(8, "T8", 120),
-    T9(9, "T9", 120),
-    T10(10, "T10", 120),
-    T11(11, "T11", 0);
+    // Ventana de Tiempo [alpha, beta]: alpha = EFT (tiempo mínimo de sensibilización en ms), beta = LFT (tiempo máximo = Long.MAX_VALUE)
+    // Transiciones inmediatas (alpha = 0 ms): T0, T2, T5, T7, T11
+    // Transiciones temporales (alpha = 70 ms): T1, T3, T4, T6, T8, T9, T10
+    T0(0, "T0", 0, Long.MAX_VALUE),
+    T1(1, "T1", 70, Long.MAX_VALUE),
+    T2(2, "T2", 0, Long.MAX_VALUE),
+    T3(3, "T3", 70, Long.MAX_VALUE),
+    T4(4, "T4", 70, Long.MAX_VALUE),
+    T5(5, "T5", 0, Long.MAX_VALUE),
+    T6(6, "T6", 70, Long.MAX_VALUE),
+    T7(7, "T7", 0, Long.MAX_VALUE),
+    T8(8, "T8", 70, Long.MAX_VALUE),
+    T9(9, "T9", 70, Long.MAX_VALUE),
+    T10(10, "T10", 70, Long.MAX_VALUE),
+    T11(11, "T11", 0, Long.MAX_VALUE);
 
     private final int index;
     private final String name;
-    private final int time;
+    private final long alpha;
+    private final long beta;
 
-    private Transitions(int index, String name, int time) {
+    private Transitions(int index, String name, long alpha, long beta) {
         this.index = index;
         this.name = name;
-        this.time = time;
+        this.alpha = alpha;
+        this.beta = beta;
     }
 
     public int getIndex() {
@@ -34,8 +37,16 @@ public enum Transitions {
         return name;
     }
 
-    public int getTime() {
-        return time;
+    public long getAlpha() {
+        return alpha;
+    }
+
+    public long getBeta() {
+        return beta;
+    }
+
+    public long getTime() {
+        return alpha;
     }
 
     public static Transitions fromIndex(int index) {
@@ -45,6 +56,5 @@ public enum Transitions {
             throw new IllegalArgumentException("Invalid transition index: " + index);
         }
         return transitions[index];
-        
     }
 }

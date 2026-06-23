@@ -41,6 +41,16 @@ public class PetriNet {
     public static final int NUM_TRANSITIONS = INCIDENCE_MATRIX[0].length;
     public static final int NUM_PLACES = INCIDENCE_MATRIX.length;
 
+    private static final long[] sensitizationTimestamps = new long[NUM_TRANSITIONS];
+
+    static {
+        long now = System.currentTimeMillis();
+        Set<Transitions> enabled = getEnabledTransitions();
+        for (int t = 0; t < NUM_TRANSITIONS; t++) {
+            sensitizationTimestamps[t] = enabled.contains(Transitions.fromIndex(t)) ? now : -1;
+        }
+    }
+
     /**
      * Invariantes de plaza (P-Invariantes) obtenidos con PIPE.
      * Cada fila es el vector de coeficientes sobre las plazas P0..P11.
@@ -126,15 +136,34 @@ public class PetriNet {
      */
     public static boolean fire(Transitions transition) {
         int[][] nextMarking = currentMarking;
+        Set<Transitions> wasEnabled = getEnabledTransitions();
         try{
             nextMarking = getNextMarking(transition.getIndex());
             setCurrentMarking(nextMarking);
             // Requerimiento 10: verificar P-invariantes luego de cada disparo
             verifyPInvariants(transition);
+
+            // Actualizar timestamps de sensibilización
+            long now = System.currentTimeMillis();
+            Set<Transitions> nowEnabled = getEnabledTransitions();
+            for (int t = 0; t < NUM_TRANSITIONS; t++) {
+                Transitions trans = Transitions.fromIndex(t);
+                if (nowEnabled.contains(trans)) {
+                    if (!wasEnabled.contains(trans) || trans == transition) {
+                        sensitizationTimestamps[t] = now;
+                    }
+                } else {
+                    sensitizationTimestamps[t] = -1;
+                }
+            }
             return true;
         } catch (InvalidFireException e){
             return false;
         }
+    }
+
+    public static long getSensitizationTimestamp(int index) {
+        return sensitizationTimestamps[index];
     }
 
     /**

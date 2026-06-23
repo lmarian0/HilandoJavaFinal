@@ -31,49 +31,64 @@ public class Monitor implements MonitorInterface{
     }
 
     @Override
-    public boolean fireTransition(int transition){
+    public boolean fireTransition(int transition) {
         lock.lock();
-        boolean key = true;
-        boolean validFiring;
         Transitions transitionEnum = Transitions.fromIndex(transition);
-        
-        try{
-            while(key){
-                validFiring = PetriNet.fire(transitionEnum);
-                if(validFiring){
-                    // Registrar el disparo DENTRO del monitor para que el log
-                    // refleje fielmente el orden real de disparo (traza atómica).
+        try {
+            while (true) {
+                Set<Transitions> enabled = PetriNet.getEnabledTransitions();
+                if (!enabled.contains(transitionEnum)) {
+                    // No está habilitada por marcado, esperar en la cola normal (libera el lock adentro)
+                    queue.acquire(transition);
+                    continue; // Al despertar, volver a evaluar todo el bucle
+                }
+                
+                // Habilitada por marcado. Controlar el tiempo mínimo (EFT = w_i + alpha)
+                long now = System.currentTimeMillis();
+                long w_i = PetriNet.getSensitizationTimestamp(transition);
+                long alpha = transitionEnum.getAlpha();
+                long eft = w_i + alpha;
+                
+                if (now < eft) {
+                    // Aún no transcurrió el tiempo mínimo. Liberar el lock y esperar fuera
+                    long sleepTime = eft - now;
+                    lock.unlock();
+                    try {
+                        Thread.sleep(sleepTime);
+                    } catch (InterruptedException e) {
+                        Thread.currentThread().interrupt();
+                        return false;
+                    }
+                    lock.lock();
+                    // Al re-adquirir el lock, volver a evaluar en el siguiente ciclo (el marcado puede haber cambiado)
+                    continue;
+                }
+                
+                // Habilitada por marcado y tiempo mínimo cumplido (now >= eft)
+                boolean validFiring = PetriNet.fire(transitionEnum);
+                if (validFiring) {
                     if (logger != null) {
                         logger.log(transitionEnum.getName());
                     }
-                    // Check sensibilized transitions (Vs)
-                    Set<Transitions> enabledTransitions = PetriNet.getEnabledTransitions();
-                    // Check who is waiting (Wt)
+                    
+                    // Despertar hilos concurrentes que estén esperando y que ahora estén habilitados
+                    Set<Transitions> nextEnabled = PetriNet.getEnabledTransitions();
                     Set<Transitions> waitingThreads = queue.getWaitingThreads();
-                    // set m to Vs&& Wt
-                    Set<Transitions> m = MathUtils.intersectSets(enabledTransitions, waitingThreads);
-                    // Do the alt(m) block
-                    if(!m.isEmpty()){
+                    Set<Transitions> m = MathUtils.intersectSets(nextEnabled, waitingThreads);
+                    if (!m.isEmpty()) {
                         int selectedTransition = policy.selectTransition(m);
                         queue.release(selectedTransition);
                     }
-                    // Exit the loop after successful firing
-                    key = false;  //review
-                }else{
-                    // Invalid firing. Release lock and go to the queue to wait
-                    queue.acquire(transition); // release lock inside acquire method
+                    break; // Disparo exitoso, salir del bucle
+                } else {
+                    // Si por algún motivo fallara el disparo, ir a la cola
+                    queue.acquire(transition);
                 }
             }
-        }finally{
-            lock.unlock();
-        }
-        
-        // Sleep OUTSIDE the monitor (lock already released)
-        try {
-            Thread.sleep(transitionEnum.getTime());
-        } catch (InterruptedException e) {
-            Thread.currentThread().interrupt();
-            return false;
+        } finally {
+            if (lock.isHeldByCurrentThread()) {
+                lock.unlock();
+            }
         }
         return true;
     }
