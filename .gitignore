@@ -1,4 +1,5 @@
 /.vscode
-machete.txt
 /target
 *.class
+*.txt
+*.log
