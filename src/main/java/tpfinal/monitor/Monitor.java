@@ -43,12 +43,16 @@ public class Monitor implements MonitorInterface{
                     continue; // Al despertar, volver a evaluar todo el bucle
                 }
                 
-                // Habilitada por marcado. Controlar el tiempo mínimo (EFT = w_i + alpha)
+                // Habilitada por marcado. Ventana de tiempo [EFT, LFT]
                 long now = System.currentTimeMillis();
                 long w_i = PetriNet.getSensitizationTimestamp(transition);
+                
+                // EFT (Earliest Firing Time) = w_i + alpha
                 long alpha = transitionEnum.getAlpha();
                 long eft = w_i + alpha;
                 
+                // Nota: El LFT (Latest Firing Time) es w_i + beta. Como beta = Long.MAX_VALUE (infinito),
+                // el límite superior es ilimitado y no requiere control explícito (now <= LFT siempre es true).
                 if (now < eft) {
                     // Aún no transcurrió el tiempo mínimo. Liberar el lock y esperar fuera
                     long sleepTime = eft - now;
