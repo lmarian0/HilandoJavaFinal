@@ -27,13 +27,30 @@ public class Main {
         Thread th_simple = new Thread(new TransitionThread(monitor, ThreadSecuence.getSecuenceFromThreadId(2), logger, counter, totalInvariants), "HiloSimple" );
         Thread th_high = new Thread(new TransitionThread(monitor, ThreadSecuence.getSecuenceFromThreadId(3), logger, counter, totalInvariants), "HiloAlta" );
 
-        Long startTime = System.currentTimeMillis();
+        int threadCount = 5;
+        if (args.length > 0 && args[0].equals("7")) {
+            threadCount = 7;
+            System.out.println("Ejecutando con 7 hilos...");
+        } else {
+            System.out.println("Ejecutando con 5 hilos...");
+        }
 
+        Long startTime = System.currentTimeMillis();
+        
         th_in.start();
         th_out.start();
         th_medium.start();
         th_simple.start();
         th_high.start();
+        
+        Thread th_medium2 = null;
+        Thread th_simple2 = null;
+        if (threadCount == 7) {
+            th_medium2 = new Thread(new TransitionThread(monitor, ThreadSecuence.getSecuenceFromThreadId(1), logger, counter, totalInvariants), "HiloMedia2" );
+            th_simple2 = new Thread(new TransitionThread(monitor, ThreadSecuence.getSecuenceFromThreadId(2), logger, counter, totalInvariants), "HiloSimple2" );
+            th_medium2.start();
+            th_simple2.start();
+        }
 
         try {
             th_in.join();
@@ -41,6 +58,10 @@ public class Main {
             th_medium.join();
             th_simple.join();
             th_high.join();
+            if (threadCount == 7) {
+                th_medium2.join();
+                th_simple2.join();
+            }
         } catch (InterruptedException e) {
             e.printStackTrace();
         }
