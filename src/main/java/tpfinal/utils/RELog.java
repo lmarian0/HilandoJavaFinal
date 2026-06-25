@@ -12,20 +12,20 @@ import java.util.regex.Pattern;
  * (requerimiento 11) a partir del archivo de log de transiciones disparadas.
  *
  * T-Invariantes de la red:
- *   IT1 (media):  T0, T1, T2, T3, T4, T11
- *   IT2 (simple): T0, T1, T5, T6, T11
- *   IT3 (alta):   T0, T1, T7, T8, T9, T10, T11
+ *   IT1 (modo de complejidad media): T0, T1, T2, T3, T4, T11
+ *   IT2 (modo de complejidad simple): T0, T1, T5, T6, T11
+ *   IT3 (modo de complejidad alta): T0, T1, T7, T8, T9, T10, T11
  *
  * Como el log se genera DENTRO del monitor, refleja el orden real de disparo.
- * Por el P-invariante de la unidad de procesamiento (CPU = 1) solo puede haber
+ * Por el P-invariante de la unidad de procesamiento (P6 = 1) solo puede haber
  * un dato procesándose a la vez, por lo que las "etapas de procesamiento" de
  * cada dato aparecen de forma CONTIGUA en el log:
- *   - media  -> T2,T3,T4
- *   - simple -> T5,T6
- *   - alta   -> T7,T8,T9,T10
- * Las transiciones de entrada/salida (T0,T1,T11) usan otros recursos (bus y
- * buffer de salida) y se intercalan libremente, por eso se filtran antes de
- * validar la estructura de procesamiento.
+ *   - complejidad media -> T2,T3,T4
+ *   - complejidad simple -> T5,T6
+ *   - complejidad alta -> T7,T8,T9,T10
+ * Las transiciones de entrada/salida (T0,T1,T11) usan otros recursos (bus de
+ * acceso al buffer y el buffer de salida de los datos) y se intercalan libremente, por eso
+ * se filtran antes de validar la estructura de procesamiento.
  */
 public class RELog {
 
@@ -33,18 +33,18 @@ public class RELog {
 
     // Patrón que reconoce ÚNICAMENTE secuencias formadas por bloques de
     // procesamiento completos y correctamente ordenados, uno tras otro.
-    private static final Pattern PROCESSING_STRUCTURE =
-            Pattern.compile("^((T2,T3,T4|T5,T6|T7,T8,T9,T10),?)*$");
+    private static final Pattern PROCESSING_STRUCTURE = Pattern.compile("^((T2,T3,T4|T5,T6|T7,T8,T9,T10),?)*$");
 
-    private static final Pattern MEDIA  = Pattern.compile("T2,T3,T4");
+    private static final Pattern MEDIA = Pattern.compile("T2,T3,T4");
     private static final Pattern SIMPLE = Pattern.compile("T5,T6");
-    private static final Pattern ALTA   = Pattern.compile("T7,T8,T9,T10");
+    private static final Pattern ALTA = Pattern.compile("T7,T8,T9,T10");
 
     public RELog() {
     }
 
     /**
      * Carga el contenido del archivo de log en memoria.
+     * 
      * @param filePath Ruta al archivo (ej: "log.txt")
      */
     public void loadLog(String filePath) {
@@ -81,6 +81,7 @@ public class RELog {
 
     /**
      * Verifica los T-invariantes a partir del log usando expresiones regulares.
+     * 
      * @return true si el log cumple con los tres T-invariantes
      */
     public boolean checkInvariant() {
@@ -113,10 +114,10 @@ public class RELog {
         // --- Verificación estructural de la parte de procesamiento ---
         // Se quitan las transiciones de entrada/salida que se intercalan.
         String core = trace.replaceAll("\\bT0\\b", "")
-                           .replaceAll("\\bT1\\b", "")
-                           .replaceAll("\\bT11\\b", "")
-                           .replaceAll(",{2,}", ",")
-                           .replaceAll("^,|,$", "");
+                .replaceAll("\\bT1\\b", "")
+                .replaceAll("\\bT11\\b", "")
+                .replaceAll(",{2,}", ",")
+                .replaceAll("^,|,$", "");
 
         boolean valid = true;
 
@@ -126,15 +127,15 @@ public class RELog {
             valid = false;
         }
 
-        int media  = countMatches(MEDIA, core);
+        int media = countMatches(MEDIA, core);
         int simple = countMatches(SIMPLE, core);
-        int alta   = countMatches(ALTA, core);
+        int alta = countMatches(ALTA, core);
         int totalInvariants = media + simple + alta;
 
         System.out.println("--- Invariantes de transición detectados (regex) ---");
-        System.out.println("IT1 - Media  (T2,T3,T4)    : " + media);
-        System.out.println("IT2 - Simple (T5,T6)       : " + simple);
-        System.out.println("IT3 - Alta   (T7,T8,T9,T10): " + alta);
+        System.out.println("IT1 - Complejidad media (T2,T3,T4)  : " + media);
+        System.out.println("IT2 - Complejidad simple (T5,T6)    : " + simple);
+        System.out.println("IT3 - Complejidad alta (T7,T8,T9,T10): " + alta);
         System.out.println("Total de invariantes       : " + totalInvariants);
 
         // Cierre entrada/salida: cada invariante empieza con T0,T1 y termina con T11

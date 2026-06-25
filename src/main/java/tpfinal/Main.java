@@ -10,6 +10,12 @@ import tpfinal.threads.TransitionThread;
 import tpfinal.utils.Logger;
 import java.util.concurrent.atomic.AtomicInteger;
 
+/**
+ * Clase de orquestación principal (Punto de entrada).
+ * Inicializa la Red de Petri, inyecta la política de disparo seleccionada por argumento,
+ * crea y lanza los hilos agentes de la simulación, espera su finalización con join()
+ * y finalmente exporta el archivo de log para la verificación formal de T-invariantes.
+ */
 public class Main {
     public static void main(String[] args) {
         // Selección de política por argumento: "random" (default) | "priority"
@@ -19,7 +25,7 @@ public class Main {
         if (policyName.equals("priority") || policyName.equals("prioritaria")) {
             policy = new PriorityFiring();
             logFile = "log_priority.txt";
-            System.out.println("Politica: PRIORIZADA (modo simple)");
+            System.out.println("Politica: PRIORIZADA (modo de complejidad simple)");
         } else {
             policy = new RandomPolicy();
             logFile = "log_random.txt";
