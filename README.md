@@ -10,9 +10,9 @@ El proyecto implementa un sistema multi-hilo que modela el flujo de datos a trav
 
 - **Bus de acceso** compartido (recurso exclusivo).
 - **Unidad de procesamiento (CPU)** compartida, con tres caminos de procesamiento de distinta complejidad:
-  - **Media** — transiciones T2 → T3 → T4 (70 ms c/u).
-  - **Simple** — transiciones T5 → T6 (70 ms).
-  - **Alta** — transiciones T7 → T8 → T9 → T10 (70 ms c/u).
+  - **Media** — transiciones T2 → T3 → T4 (75 ms c/u).
+  - **Simple** — transiciones T5 → T6 (75 ms).
+  - **Alta** — transiciones T7 → T8 → T9 → T10 (75 ms c/u).
 - **Cola de entrada** y **buffer de salida**.
 
 La sincronización se realiza mediante un **Monitor** basado en `ReentrantLock` con colas de condición (`Condition`), garantizando exclusión mutua y ausencia de deadlocks.
@@ -89,7 +89,7 @@ Al finalizar, el programa genera un archivo de log (`log_random.txt` o `log_prio
 
 ```
 Politica: ALEATORIA
-Tiempo de ejecucion: ~28000 ms
+Tiempo de ejecucion: ~30000 ms
 Log cargado correctamente. Transiciones: 1195
 --- Conteo de transiciones ---
 T0: 200
