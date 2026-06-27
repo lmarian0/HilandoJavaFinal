@@ -155,3 +155,65 @@ mvn test
 ```bash
 mvn clean
 ```
+
+---
+
+## Validación de Logs con RELog (Testing de Invariantes)
+
+El proyecto incluye la herramienta `RELog` que permite analizar y validar archivos de log de forma autónoma e independiente, sin necesidad de lanzar la simulación completa. Esto es ideal para realizar pruebas de regresión, simular fallos de sincronización y testear la robustez del verificador.
+
+### Algoritmo de Validación
+`RELog` implementa un algoritmo de **reducción recursiva por expresiones regulares**. Analiza el flujo buscando ciclos completos de transiciones según los T-invariantes de la red:
+*   **Complejidad media**: `T0 -> T1 -> T2 -> T3 -> T4 -> T11`
+*   **Complejidad simple**: `T0 -> T1 -> T5 -> T6 -> T11`
+*   **Complejidad alta**: `T0 -> T1 -> T7 -> T8 -> T9 -> T10 -> T11`
+
+Si un ciclo se completa con éxito, es extraído de la traza manteniendo intacto el orden del resto de las transiciones concurrentes (interleaving). El proceso se repite hasta que no hay más coincidencias. Si el archivo es válido, la traza se reduce por completo a vacío.
+
+### Modos de Ejecución
+
+Para ejecutar el validador sobre los logs generados por defecto:
+
+```bash
+# Validar el log generado por la última simulación Aleatoria (log_random.txt)
+java -cp target/classes tpfinal.utils.RELog random
+
+# Validar el log generado por la última simulación Priorizada (log_priority.txt)
+java -cp target/classes tpfinal.utils.RELog priority
+```
+
+### Validación de Logs Personalizados / Alterados
+
+Para validar cualquier archivo de log en una ruta arbitraria (por ejemplo, para testear logs donde se simulan errores manualmente):
+
+```bash
+java -cp target/classes tpfinal.utils.RELog /ruta/al/archivo_de_log.txt
+```
+
+#### Ejemplo práctico de Testing Manual (Inyección de Errores)
+
+1. **Generar un log válido:**
+   Ejecuta la simulación con `java -cp target/classes tpfinal.Main random` para obtener un `log_random.txt` correcto.
+2. **Copiar y alterar el log:**
+   Crea una copia de prueba y elimina manualmente alguna transición (por ejemplo, una línea que contenga `T8` o `T11`):
+   ```bash
+   cp log_random.txt log_prueba.txt
+   # Elimina la primera ocurrencia de T11 del archivo
+   sed -i '0,/^T11$/{//d}' log_prueba.txt
+   ```
+3. **Ejecutar la validación:**
+   ```bash
+   java -cp target/classes tpfinal.utils.RELog log_prueba.txt
+   ```
+4. **Resultado esperado de error:**
+   El validador rechazará el log indicando qué invariantes logró rescatar y listando con precisión las transiciones huérfanas que no pudieron asociarse a ningún ciclo:
+   ```text
+   --- Invariantes de transición detectados (reducción recursiva) ---
+   IT1 - Complejidad media (T0-T1-T2-T3-T4-T11)  : 65
+   IT2 - Complejidad simple (T0-T1-T5-T6-T11)    : 69
+   IT3 - Complejidad alta (T0-T1-T7-T8-T9-T10-T11): 65
+   Coincidencias (ciclos válidos)                : 199
+   --- Resultado ---
+   VALIDACION DE INVARIANTES FALLIDA
+   Transiciones restantes: T0T1T7T8T9T10
+   ```
