@@ -9,37 +9,76 @@ import java.util.regex.Pattern;
 
 /**
  * Verificación de los T-invariantes de la red mediante EXPRESIONES REGULARES
- * (requerimiento 11) a partir del archivo de log de transiciones disparadas.
+ * a partir del archivo de log de transiciones disparadas.
  *
  * T-Invariantes de la red:
  *   IT1 (modo de complejidad media): T0, T1, T2, T3, T4, T11
  *   IT2 (modo de complejidad simple): T0, T1, T5, T6, T11
  *   IT3 (modo de complejidad alta): T0, T1, T7, T8, T9, T10, T11
  *
- * Como el log se genera DENTRO del monitor, refleja el orden real de disparo.
- * Por el P-invariante de la unidad de procesamiento (P6 = 1) solo puede haber
- * un dato procesándose a la vez, por lo que las "etapas de procesamiento" de
- * cada dato aparecen de forma CONTIGUA en el log:
- *   - complejidad media -> T2,T3,T4
- *   - complejidad simple -> T5,T6
- *   - complejidad alta -> T7,T8,T9,T10
- * Las transiciones de entrada/salida (T0,T1,T11) usan otros recursos (bus de
- * acceso al buffer y el buffer de salida de los datos) y se intercalan libremente, por eso
- * se filtran antes de validar la estructura de procesamiento.
+ * Algoritmo: Reducción recursiva por expresiones regulares.
+ * Se busca iterativamente en la traza cruda del log ciclos de vida completos
+ * (T0 -> T1 -> bloque de procesamiento -> T11), se los extrae conservando el
+ * interleaving intermedio, y se repite hasta que no haya más coincidencias.
+ * Si la cadena resultante queda vacía, el log cumple con todos los T-invariantes.
+ * Este enfoque valida el invariante completo de punta a punta (entrada, procesamiento
+ * y salida), a diferencia de validar cada capa por separado.
  */
 public class RELog {
 
+    /** Contenido del archivo de log cargado en memoria, línea por línea. */
     private List<String> logLines;
 
-    // Patrón que reconoce ÚNICAMENTE secuencias formadas por bloques de
-    // procesamiento completos y correctamente ordenados, uno tras otro.
-    private static final Pattern PROCESSING_STRUCTURE = Pattern.compile("^((T2,T3,T4|T5,T6|T7,T8,T9,T10),?)*$");
-
-    private static final Pattern MEDIA = Pattern.compile("T2,T3,T4");
-    private static final Pattern SIMPLE = Pattern.compile("T5,T6");
-    private static final Pattern ALTA = Pattern.compile("T7,T8,T9,T10");
-
     public RELog() {
+    }
+
+    /**
+     * Punto de entrada principal para ejecutar el validador de forma independiente.
+     * Permite probar cualquier archivo de log sin necesidad de ejecutar la simulación completa,
+     * facilitando el testing manual (editar el log, inyectar errores y re-validar).
+     *
+     * Modos de uso:
+     *   java -cp target/classes tpfinal.utils.RELog random       -> valida log_random.txt
+     *   java -cp target/classes tpfinal.utils.RELog priority     -> valida log_priority.txt
+     *   java -cp target/classes tpfinal.utils.RELog mi_log.txt   -> valida una ruta arbitraria
+     *   java -cp target/classes tpfinal.utils.RELog              -> (sin args) muestra ayuda de uso
+     *
+     * @param args Primer argumento: "random", "priority" o ruta al archivo de log
+     */
+    public static void main(String[] args) {
+        // Sin argumentos: mostrar ayuda de uso y salir
+        if (args.length == 0) {
+            System.out.println("Uso: java -cp target/classes tpfinal.utils.RELog <random|priority|ruta_archivo>");
+            System.out.println("  random   -> valida log_random.txt");
+            System.out.println("  priority -> valida log_priority.txt");
+            System.out.println("  <ruta>   -> valida el archivo indicado");
+            return;
+        }
+
+        // Resolver el nombre del archivo según el argumento recibido
+        String arg = args[0].toLowerCase();
+        String logFile;
+        switch (arg) {
+            case "random":
+                logFile = "log_random.txt";
+                break;
+            case "priority":
+                logFile = "log_priority.txt";
+                break;
+            default:
+                // Cualquier otro valor se interpreta como ruta directa al archivo
+                logFile = args[0];
+                break;
+        }
+
+        System.out.println("========================================================");
+        System.out.println("  Verificador RELog - Validación de T-Invariantes");
+        System.out.println("  Archivo: " + logFile);
+        System.out.println("========================================================");
+
+        RELog reLog = new RELog();
+        reLog.loadLog(logFile);
+        reLog.checkInvariant();
     }
 
     /**
@@ -57,32 +96,13 @@ public class RELog {
     }
 
     /**
-     * Cuenta las ocurrencias de una transición exacta en el log usando regex.
-     * Se usa \b (límite de palabra) para que, por ejemplo, "T1" no matchee "T11".
-     */
-    private int countTransition(String trace, String name) {
-        Matcher m = Pattern.compile("\\b" + name + "\\b").matcher(trace);
-        int count = 0;
-        while (m.find()) {
-            count++;
-        }
-        return count;
-    }
-
-    /** Cuenta matches no solapados de un patrón sobre un texto. */
-    private int countMatches(Pattern pattern, String text) {
-        Matcher m = pattern.matcher(text);
-        int count = 0;
-        while (m.find()) {
-            count++;
-        }
-        return count;
-    }
-
-    /**
-     * Verifica los T-invariantes a partir del log usando expresiones regulares.
-     * 
-     * @return true si el log cumple con los tres T-invariantes
+     * Verifica los T-invariantes a partir del log usando el algoritmo de reducción recursiva.
+     * Busca ciclos de vida completos (T0...T11) definidos por los invariantes,
+     * los clasifica mediante los grupos de captura de la expresión regular y los remueve
+     * conservando las transiciones intercaladas en el medio (interleaving) hasta reducir
+     * la cadena a vacío.
+     *
+     * @return true si la cadena se redujo a vacío (secuencia de invariantes correcta)
      */
     public boolean checkInvariant() {
         if (logLines == null || logLines.isEmpty()) {
@@ -90,72 +110,73 @@ public class RELog {
             return false;
         }
 
-        // Traza completa separada por comas: "T0,T1,T5,T6,T11,..."
+        // Unir todo en una sola cadena sin comas ni saltos de línea
         StringBuilder sb = new StringBuilder();
         for (String line : logLines) {
             String t = line.trim();
             if (!t.isEmpty()) {
-                if (sb.length() > 0) {
-                    sb.append(',');
-                }
                 sb.append(t);
             }
         }
         String trace = sb.toString();
 
-        // --- Conteo de cada transición (regex con límite de palabra) ---
-        System.out.println("--- Conteo de transiciones ---");
-        int[] counts = new int[12];
-        for (int i = 0; i <= 11; i++) {
-            counts[i] = countTransition(trace, "T" + i);
-            System.out.println("T" + i + ": " + counts[i]);
-        }
+        int media = 0;
+        int simple = 0;
+        int alta = 0;
+        int totalMatches = 0;
 
-        // --- Verificación estructural de la parte de procesamiento ---
-        // Se quitan las transiciones de entrada/salida que se intercalan.
-        String core = trace.replaceAll("\\bT0\\b", "")
-                .replaceAll("\\bT1\\b", "")
-                .replaceAll("\\bT11\\b", "")
-                .replaceAll(",{2,}", ",")
-                .replaceAll("^,|,$", "");
+        // Expresión regular que define la estructura jerárquica de los tres T-invariantes de la red
+        Pattern pattern = Pattern.compile("(T0)(.*?)(T1)(?!\\d)(.*?)((T2)(.*?)(T3)(.*?)(T4)|(T5)(.*?)(T6)|(T7)(.*?)(T8)(.*?)(T9)(.*?)(T10))(.*?)(T11)(.*?)");
+        String current = trace;
+        int matchesInStep;
 
-        boolean valid = true;
+        do {
+            Matcher m = pattern.matcher(current);
+            StringBuffer stepSb = new StringBuffer();
+            matchesInStep = 0;
+            while (m.find()) {
+                matchesInStep++;
+                // Clasificación exacta usando los grupos de captura correspondientes a cada camino
+                if (m.group(14) != null) {
+                    alta++;
+                } else if (m.group(11) != null) {
+                    simple++;
+                } else if (m.group(6) != null) {
+                    media++;
+                }
 
-        if (!PROCESSING_STRUCTURE.matcher(core).matches()) {
-            System.out.println("FALLO: la secuencia de procesamiento contiene "
-                    + "etapas incompletas o desordenadas (no respeta los T-invariantes).");
-            valid = false;
-        }
+                // Reconstrucción del interleaving (conserva las transiciones intermedias de los grupos de comodín)
+                StringBuilder replacement = new StringBuilder();
+                int[] groups = {2, 4, 7, 9, 12, 15, 17, 19, 21, 23};
+                for (int g : groups) {
+                    String groupVal = m.group(g);
+                    if (groupVal != null) {
+                        replacement.append(groupVal);
+                    }
+                }
+                m.appendReplacement(stepSb, Matcher.quoteReplacement(replacement.toString()));
+            }
+            m.appendTail(stepSb);
+            current = stepSb.toString();
+            totalMatches += matchesInStep;
+        } while (matchesInStep > 0);
 
-        int media = countMatches(MEDIA, core);
-        int simple = countMatches(SIMPLE, core);
-        int alta = countMatches(ALTA, core);
-        int totalInvariants = media + simple + alta;
+        System.out.println("--- Invariantes de transición detectados (reducción recursiva) ---");
+        System.out.println("IT1 - Complejidad media (T0-T1-T2-T3-T4-T11)  : " + media);
+        System.out.println("IT2 - Complejidad simple (T0-T1-T5-T6-T11)    : " + simple);
+        System.out.println("IT3 - Complejidad alta (T0-T1-T7-T8-T9-T10-T11): " + alta);
+        System.out.println("Coincidencias (ciclos válidos)                : " + totalMatches);
 
-        System.out.println("--- Invariantes de transición detectados (regex) ---");
-        System.out.println("IT1 - Complejidad media (T2,T3,T4)  : " + media);
-        System.out.println("IT2 - Complejidad simple (T5,T6)    : " + simple);
-        System.out.println("IT3 - Complejidad alta (T7,T8,T9,T10): " + alta);
-        System.out.println("Total de invariantes       : " + totalInvariants);
-
-        // Cierre entrada/salida: cada invariante empieza con T0,T1 y termina con T11
-        if (counts[0] != counts[1] || counts[0] != counts[11]) {
-            System.out.println("FALLO: entrada/salida desbalanceada "
-                    + "T0(" + counts[0] + ") T1(" + counts[1] + ") T11(" + counts[11] + ")");
-            valid = false;
-        }
-        if (counts[0] != totalInvariants) {
-            System.out.println("FALLO: T0(" + counts[0] + ") != suma de invariantes ("
-                    + totalInvariants + ")");
-            valid = false;
-        }
+        boolean valid = (current.length() == 0);
 
         System.out.println("--- Resultado ---");
         if (valid) {
-            System.out.println("El log CUMPLE con todos los T-invariantes.");
+            System.out.println("VALIDACION DE INVARIANTES EXITOSA");
         } else {
-            System.out.println("El log NO cumple con los T-invariantes.");
+            System.out.println("VALIDACION DE INVARIANTES FALLIDA");
+            System.out.println("Transiciones restantes: " + current);
         }
+
         return valid;
     }
 }
