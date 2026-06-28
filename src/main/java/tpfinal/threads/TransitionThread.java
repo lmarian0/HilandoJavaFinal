@@ -22,53 +22,52 @@ public class TransitionThread implements Runnable {
     private int fireAmount;
     // Contador atómico compartido para el reparto dinámico de cargas en la unidad de procesamiento
     private AtomicInteger counter;
+    // Trazador detallado opcional
+    private tpfinal.utils.TraceLogger traceLogger;
 
     /**
      * Constructor para hilos con carga de disparos estática (Entrada y Salida).
-     * 
-     * @param monitor    El monitor de concurrencia
-     * @param secuencia  La secuencia de transiciones a disparar
-     * @param fireAmount La cantidad fija de disparos/ciclos a realizar
      */
-    public TransitionThread(Monitor monitor, Transitions[] secuencia, int fireAmount) {
+    public TransitionThread(Monitor monitor, Transitions[] secuencia, int fireAmount, tpfinal.utils.TraceLogger traceLogger) {
         this.monitor = monitor;
         this.secuencia = secuencia;
         this.fireAmount = fireAmount;
         this.counter = null;
+        this.traceLogger = traceLogger;
     }
 
     /**
-     * Constructor para hilos de procesamiento en la unidad de procesamiento con balance dinámico de
-     * cargas.
-     * 
-     * @param monitor   El monitor de concurrencia
-     * @param secuencia La secuencia del modo de complejidad (simple, media o alta)
-     * @param counter   El contador atómico compartido entre los hilos de procesamiento
-     * @param target    La cantidad total de invariantes de procesamiento a procesar
-     *                  en conjunto
+     * Constructor para hilos de procesamiento en la unidad de procesamiento con balance dinámico de cargas.
      */
-    public TransitionThread(Monitor monitor, Transitions[] secuencia, AtomicInteger counter, int target) {
+    public TransitionThread(Monitor monitor, Transitions[] secuencia, AtomicInteger counter, int target, tpfinal.utils.TraceLogger traceLogger) {
         this.monitor = monitor;
         this.secuencia = secuencia;
         this.fireAmount = target;
         this.counter = counter;
+        this.traceLogger = traceLogger;
     }
 
     @Override
     public void run() {
         // El logueo se realiza dentro del monitor (orden real de disparo),
         // por eso aquí solo se solicita el disparo de cada transición.
-        if (counter == null) {
-            for (int i = 0; i < fireAmount; i++) {
-                for (Transitions t : secuencia) {
-                    monitor.fireTransition(t.getIndex());
+        try {
+            if (counter == null) {
+                for (int i = 0; i < fireAmount; i++) {
+                    for (Transitions t : secuencia) {
+                        monitor.fireTransition(t.getIndex());
+                    }
+                }
+            } else {
+                while (counter.getAndIncrement() < fireAmount) {
+                    for (Transitions t : secuencia) {
+                        monitor.fireTransition(t.getIndex());
+                    }
                 }
             }
-        } else {
-            while (counter.getAndIncrement() < fireAmount) {
-                for (Transitions t : secuencia) {
-                    monitor.fireTransition(t.getIndex());
-                }
+        } finally {
+            if (traceLogger != null) {
+                traceLogger.logFinished(traceLogger.getLabel());
             }
         }
     }

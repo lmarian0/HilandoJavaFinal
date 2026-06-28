@@ -8,6 +8,7 @@ import tpfinal.rdp.PetriNet;
 import tpfinal.rdp.Transitions;
 import tpfinal.utils.Logger;
 import tpfinal.utils.MathUtils;
+import tpfinal.utils.TraceLogger;
 
 /**
  * Monitor de Concurrencia encargado de arbitrar y sincronizar el disparo de
@@ -30,36 +31,25 @@ public class Monitor implements MonitorInterface {
     private final Policy policy;
     // Logger para el registro secuencial y ordenado de los disparos
     private final Logger logger;
-
-    /**
-     * Constructor por defecto del Monitor. Inicializa con una política aleatoria
-     * y sin logger activo.
-     */
-    public Monitor() {
-        this(new RandomPolicy(), null);
-    }
-
-    /**
-     * Constructor del Monitor con política personalizada.
-     * 
-     * @param policy Política inyectada para resolver conflictos entre transiciones
-     *               habilitadas
-     */
-    public Monitor(Policy policy) {
-        this(policy, null);
-    }
+    // Trazador detallado opcional
+    private TraceLogger traceLogger;
+    
+    // Contadores para control de finalización de invariantes
+    private int t11Count = 0;
+    private boolean completed = false;
 
     /**
      * Constructor completo del Monitor.
      * 
-     * @param policy Política inyectada para la resolución de conflictos
-     * @param logger Logger utilizado para registrar los disparos en orden estricto
-     *               de exclusión mutua
+     * @param policy      Política inyectada para la resolución de conflictos
+     * @param logger      Logger utilizado para registrar los disparos en orden estricto
+     * @param traceLogger Trazador detallado para observabilidad en tiempo real (opcional)
      */
-    public Monitor(Policy policy, Logger logger) {
+    public Monitor(Policy policy, Logger logger, TraceLogger traceLogger) {
         this.queue = new Queue(PetriNet.NUM_TRANSITIONS, lock);
         this.policy = policy;
         this.logger = logger;
+        this.traceLogger = traceLogger;
     }
 
     /**
@@ -74,14 +64,35 @@ public class Monitor implements MonitorInterface {
     @Override
     public boolean fireTransition(int transition) {
         lock.lock();
+        String label = "";
+        if (traceLogger != null) {
+            label = traceLogger.getLabel();
+            traceLogger.logEnterMonitor(label);
+        }
         Transitions transitionEnum = Transitions.fromIndex(transition);
         try {
             while (true) {
+                if (completed) {
+                    if (traceLogger != null) {
+                        traceLogger.logCompletedAbandoned(label);
+                    }
+                    return false;
+                }
+
                 Set<Transitions> enabled = PetriNet.getEnabledTransitions();
+                if (traceLogger != null) {
+                    traceLogger.logAttempt(label, transitionEnum.getName());
+                }
+
                 if (!enabled.contains(transitionEnum)) {
-                    // No está habilitada por marcado, esperar en la cola normal (libera el lock
-                    // adentro)
+                    if (traceLogger != null) {
+                        traceLogger.logNoTokens(label, transitionEnum.getName());
+                    }
+                    // No está habilitada por marcado, esperar en la cola normal (libera el lock adentro)
                     queue.acquire(transition);
+                    if (traceLogger != null) {
+                        traceLogger.logWokeFromQueue(label);
+                    }
                     continue; // Al despertar, volver a evaluar todo el bucle
                 }
 
@@ -93,11 +104,10 @@ public class Monitor implements MonitorInterface {
                 long alpha = transitionEnum.getAlpha();
                 long eft = w_i + alpha;
 
-                // Nota: El LFT (Latest Firing Time) es w_i + beta. Como beta = Long.MAX_VALUE
-                // (infinito),
-                // el límite superior es ilimitado y no requiere control explícito (now <= LFT
-                // siempre es true).
                 if (now < eft) {
+                    if (traceLogger != null) {
+                        traceLogger.logTimeWait(label);
+                    }
                     // Aún no transcurrió el tiempo mínimo. Liberar el lock y esperar fuera
                     long sleepTime = eft - now;
                     lock.unlock();
@@ -108,8 +118,10 @@ public class Monitor implements MonitorInterface {
                         return false;
                     }
                     lock.lock();
-                    // Al re-adquirir el lock, volver a evaluar en el siguiente ciclo (el marcado
-                    // puede haber cambiado)
+                    if (traceLogger != null) {
+                        traceLogger.logWokeFromSleep(label);
+                    }
+                    // Al re-adquirir el lock, volver a evaluar en el siguiente ciclo (el marcado puede haber cambiado)
                     continue;
                 }
 
@@ -120,19 +132,62 @@ public class Monitor implements MonitorInterface {
                         logger.log(transitionEnum.getName());
                     }
 
-                    // Despertar hilos concurrentes que estén esperando y que ahora estén
-                    // habilitados
+                    if (transitionEnum == Transitions.T11) {
+                        t11Count++;
+                        if (t11Count == 200) {
+                            completed = true;
+                        }
+                    }
+
+                    if (traceLogger != null) {
+                        traceLogger.logFired(label, transitionEnum.getName());
+                        if (completed && transitionEnum == Transitions.T11) {
+                            traceLogger.logCompleted(label);
+                        }
+                        traceLogger.logState(
+                            PetriNet.getCurrentMarkingArray(),
+                            PetriNet.getEnabledArray(),
+                            queue.getWaitingCounts()
+                        );
+                    }
+
+                    // Si se completaron los invariantes, despertar a todos los hilos esperando en cualquier cola
+                    if (completed) {
+                        for (int i = 0; i < PetriNet.NUM_TRANSITIONS; i++) {
+                            queue.release(i);
+                        }
+                    }
+
+                    // Despertar hilos concurrentes que estén esperando y que ahora estén habilitados
                     Set<Transitions> nextEnabled = PetriNet.getEnabledTransitions();
                     Set<Transitions> waitingThreads = queue.getWaitingThreads();
                     Set<Transitions> m = MathUtils.intersectSets(nextEnabled, waitingThreads);
-                    if (!m.isEmpty()) {
+                    if (!m.isEmpty() && !completed) {
                         int selectedTransition = policy.selectTransition(m);
+                        if (traceLogger != null) {
+                            traceLogger.logPolicyDecision(label, policy.getDecisionMessage());
+                            traceLogger.logWakeUp(label, selectedTransition);
+                        }
                         queue.release(selectedTransition);
+                    } else {
+                        if (traceLogger != null) {
+                            traceLogger.logNoWakeUp(label);
+                        }
+                    }
+
+                    if (traceLogger != null) {
+                        traceLogger.logLeaveMonitor(label);
                     }
                     break; // Disparo exitoso, salir del bucle
                 } else {
                     // Si por algún motivo fallara el disparo, ir a la cola
+                    if (traceLogger != null) {
+                        traceLogger.logNoTokens(label, transitionEnum.getName());
+                    }
                     queue.acquire(transition);
+                    if (traceLogger != null) {
+                        traceLogger.logWokeFromQueue(label);
+                    }
                 }
             }
         } finally {
