@@ -76,4 +76,13 @@ public class Queue {
         }
         return waitingThreads;
     }
+
+    /**
+     * Devuelve una copia de la cantidad de hilos suspendidos esperando por cada transición.
+     * 
+     * @return Un array con la cuenta de espera para cada transición
+     */
+    public int[] getWaitingCounts() {
+        return waitingCounts.clone();
+    }
 }

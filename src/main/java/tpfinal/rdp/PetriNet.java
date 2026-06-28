@@ -159,7 +159,7 @@ public class PetriNet {
         try {
             nextMarking = getNextMarking(transition.getIndex());
             setCurrentMarking(nextMarking);
-            // Requerimiento 10: verificar P-invariantes luego de cada disparo
+            // Verificacion de los P-invariantes luego de cada disparo
             verifyPInvariants(transition);
 
             // Actualizar timestamps de sensibilización para la ventana de tiempo
@@ -196,7 +196,7 @@ public class PetriNet {
 
     /**
      * Verifica que el marcado actual cumpla con TODOS los invariantes de plaza.
-     * Se ejecuta luego de cada disparo exitoso (requerimiento 10). Si alguno
+     * Se ejecuta luego de cada disparo exitoso. Si alguno
      * no se cumple, la red habría perdido una propiedad estructural, por lo que
      * se aborta la ejecución para evidenciar el error.
      * 
@@ -249,5 +249,32 @@ public class PetriNet {
             }
         }
         return enabledTransitions;
+    }
+
+    /**
+     * Devuelve el marcado actual como array plano.
+     * 
+     * @return El marcado de la red
+     */
+    public static int[] getCurrentMarkingArray() {
+        int[] flat = new int[NUM_PLACES];
+        for (int i = 0; i < NUM_PLACES; i++) {
+            flat[i] = currentMarking[i][0];
+        }
+        return flat;
+    }
+
+    /**
+     * Devuelve el vector binario de transiciones sensibilizadas.
+     * 
+     * @return Array indicando con 1 las transiciones habilitadas y 0 las demas
+     */
+    public static int[] getEnabledArray() {
+        int[] arr = new int[NUM_TRANSITIONS];
+        Set<Transitions> enabled = getEnabledTransitions();
+        for (Transitions t : enabled) {
+            arr[t.getIndex()] = 1;
+        }
+        return arr;
     }
 }

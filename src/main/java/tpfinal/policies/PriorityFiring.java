@@ -14,6 +14,7 @@ public class PriorityFiring implements Policy {
 
     // Transición T5 (inicio del modo de complejidad simple) que posee prioridad absoluta sobre la unidad de procesamiento
     private final int PRIORITY_TRANSITION = 5;
+    private String lastDecisionMessage = "";
 
     /**
      * Selecciona la transición a disparar dando prioridad absoluta a T5 si está presente.
@@ -29,6 +30,7 @@ public class PriorityFiring implements Policy {
         for(Transitions t : enabledTransitions){
             int index = t.getIndex();
             if(index == PRIORITY_TRANSITION){
+                lastDecisionMessage = "Priorizando procesamiento simple.";
                 return PRIORITY_TRANSITION; // Priorizar T5 de inmediato
             }
         }
@@ -38,10 +40,16 @@ public class PriorityFiring implements Policy {
         int i = 0;
         for (Transitions t : enabledTransitions) {
             if (i == randomIndex) {
+                lastDecisionMessage = "Selección aleatoria (T5 no disponible).";
                 return t.getIndex();
             }
             i++;
         }
         throw new IllegalStateException("No hay transiciones habilitadas disponibles");
+    }
+
+    @Override
+    public String getDecisionMessage() {
+        return lastDecisionMessage;
     }
 }

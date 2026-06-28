@@ -9,6 +9,8 @@ import tpfinal.rdp.Transitions;
  */
 public class RandomPolicy implements Policy {
 
+    private String lastDecisionMessage = "";
+
     /**
      * Selecciona una transición aleatoria de entre las transiciones habilitadas.
      * 
@@ -24,10 +26,16 @@ public class RandomPolicy implements Policy {
         int i = 0;
         for (Transitions transition : enabledTransitions) {
             if (i == item) {
+                lastDecisionMessage = "Selección aleatoria entre transiciones habilitadas.";
                 return transition.getIndex();
             }
             i++;
         }
         throw new IllegalStateException("No hay transiciones habilitadas disponibles");
+    }
+
+    @Override
+    public String getDecisionMessage() {
+        return lastDecisionMessage;
     }
 }

@@ -17,4 +17,11 @@ public interface Policy {
      * @return El índice de la transición seleccionada para disparar/despertar
      */
     int selectTransition(Set<Transitions> enabledTransitions);
+
+    /**
+     * Devuelve el mensaje descriptivo de la última decisión tomada por la política.
+     * 
+     * @return El mensaje formateado para el trazador detallado
+     */
+    String getDecisionMessage();
 }
