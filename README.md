@@ -127,21 +127,45 @@ mvn compile
 ### Ejecutar con política aleatoria
 
 ```bash
+# Modo silencioso (por defecto, con verificación final)
 java -cp target/classes tpfinal.Main random
+
+# Modo trazado de alta observabilidad (en tiempo real por consola)
+java -cp target/classes tpfinal.Main random --trace
 ```
 
 ### Ejecutar con política priorizada
 
 ```bash
+# Modo silencioso (por defecto, con verificación final)
 java -cp target/classes tpfinal.Main priority
+
+# Modo trazado de alta observabilidad (en tiempo real por consola)
+java -cp target/classes tpfinal.Main priority --trace
 ```
+
+### Trazado Detallado (Observabilidad en Vivo)
+Al ejecutar con el flag `--trace`, el monitor y los hilos emitirán a consola un volcado detallado de eventos estructurado en bloques por cada ciclo de disparo:
+
+- **Evolución de hilos**: Identificados por su función: `[Entrada]`, `[Media]`, `[Simple]`, `[Alta]`, `[Salida]`.
+- **Eventos del monitor**: Intentos de disparo, esperas pasivas por tokens (cola), suspensiones temporales por ventana de tiempo (`sleep`), y liberación/toma del mutex.
+- **Estado de la red**: Imprime tras cada disparo:
+  - `Marcado`: Vector de tokens por plaza.
+  - `Sensibilizadas`: Transiciones habilitadas.
+  - `Dormidos`: Cantidad de hilos esperando en cada condición.
+- **Decisión de políticas**: Muestra el comportamiento y elección de la política configurada.
 
 ### Empaquetar y ejecutar el JAR
 
 ```bash
 mvn package
+# Modo silencioso
 java -cp target/HilandoJavaFinal-1.0-SNAPSHOT.jar tpfinal.Main random
 java -cp target/HilandoJavaFinal-1.0-SNAPSHOT.jar tpfinal.Main priority
+
+# Modo trazado
+java -cp target/HilandoJavaFinal-1.0-SNAPSHOT.jar tpfinal.Main random --trace
+java -cp target/HilandoJavaFinal-1.0-SNAPSHOT.jar tpfinal.Main priority --trace
 ```
 
 ### Ejecutar los tests
