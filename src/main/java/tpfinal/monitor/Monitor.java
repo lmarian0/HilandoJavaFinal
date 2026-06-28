@@ -11,14 +11,8 @@ import tpfinal.utils.MathUtils;
 import tpfinal.utils.TraceLogger;
 
 /**
- * Monitor de Concurrencia encargado de arbitrar y sincronizar el disparo de
- * transiciones
- * en la Red de Petri. Utiliza exclusión mutua equitativa (fair lock) y colas de
- * condición
- * específicas por transición para evitar condiciones de carrera, esperas
- * activas e inanición.
- * Expone públicamente sólo el método fireTransition y no posee referencias
- * hardcodeadas a transiciones concretas (es totalmente agnóstico a la red).
+ * Monitor de Concurrencia encargado de arbitrar y sincronizar el disparo de transiciones en la Red de Petri.
+ * Utiliza exclusión mutua equitativa (fair lock) y colas de condición específicas por transición para evitar condiciones de carrera, esperas activas e inanición.
  */
 public class Monitor implements MonitorInterface {
 
