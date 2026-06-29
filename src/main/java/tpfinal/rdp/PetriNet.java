@@ -159,7 +159,7 @@ public class PetriNet {
         try {
             nextMarking = getNextMarking(transition.getIndex());
             setCurrentMarking(nextMarking);
-            // Requerimiento 10: verificar P-invariantes luego de cada disparo
+            // Verificar P-invariantes luego de cada disparo
             verifyPInvariants(transition);
 
             // Actualizar timestamps de sensibilización para la ventana de tiempo
@@ -196,7 +196,7 @@ public class PetriNet {
 
     /**
      * Verifica que el marcado actual cumpla con TODOS los invariantes de plaza.
-     * Se ejecuta luego de cada disparo exitoso (requerimiento 10). Si alguno
+     * Se ejecuta luego de cada disparo exitoso. Si alguno
      * no se cumple, la red habría perdido una propiedad estructural, por lo que
      * se aborta la ejecución para evidenciar el error.
      * 
