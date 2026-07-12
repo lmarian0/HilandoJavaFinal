@@ -43,9 +43,11 @@ public class Queue {
         try {
             waitingCounts[transition]++;
             conditions[transition].await(); // Espera pasiva liberando el lock
-            waitingCounts[transition]--;
         } catch (InterruptedException e) {
             Thread.currentThread().interrupt();
+        }
+        finally {
+            waitingCounts[transition]--;
         }
     }
 
