@@ -1,8 +1,8 @@
-# Documentación del Refactor "Signal and Exit"
+# Monitor con politica Signal and Exit
 
 ## Objetivo
 
-Este documento técnico describe de forma detallada todos los cambios introducidos durante la migración de la arquitectura del Monitor de concurrencia de la Red de Petri. Se detalla la transición desde la implementación original basada en `ReentrantLock` hacia la nueva implementación basada en Semáforos Binarios.
+Este documento técnico describe de forma detallada todos los cambios introducidos durante la migración de la arquitectura del Monitor de concurrencia de la Red de Petri. Se detalla la transición desde la implementación original basada en `ReentrantLock` + `Condition` hacia la nueva implementación basada en Semáforos Binarios.
 El objetivo es fundamentar el razonamiento técnico detrás de cada decisión de diseño, explicando cómo se logró la herencia estricta del mutex y el impacto que esto tuvo sobre la fiabilidad y el determinismo del sistema concurrente.
 
 ---
@@ -22,15 +22,15 @@ Para comprender el refactor, es vital definir cómo se manejaba la política de 
 
 ## 1. Reemplazo del Mecanismo de Exclusión Mutua (Mutex)
 
-### 1. Descripción del cambio
+### 1.1. Descripción del cambio
 Se reemplazó el uso de la clase `ReentrantLock` por un `Semaphore(1, true)` (semáforo binario equitativo) en `Monitor.java`.
 
-### 2. Justificación técnica
+### 1.2. Justificación técnica
 La clase `ReentrantLock` de Java impone una restricción estructural inquebrantable llamada **"Ownership" (Posesión)**: el mismo hilo que adquiere el cerrojo es el único autorizado para liberarlo. 
 Para implementar la herencia de mutex, es un requisito teórico que el hilo que señaliza le "transfiera" el acceso al hilo despertado. Como `ReentrantLock` exige que el señalizador libere su propio lock, la transferencia directa es imposible. 
 El `Semaphore` en Java, por el contrario, no tiene concepto de ownership: cualquier hilo puede adquirir permisos y cualquier otro hilo puede liberarlos. Esto es lo que permite que un hilo despierte a otro y le ceda el control de la estructura sin abrir la puerta principal.
 
-### 3. Impacto del cambio
+### 1.3. Impacto del cambio
 - **Determinismo y Efecto Ping-Pong:** Si bien ambas implementaciones usan colas justas (fairness), la herencia del mutex garantiza que el hilo despertado ejecute inmediatamente sin competir en la cola de entrada, generando un entrelazado perfecto y predecible.
 
   En el modo de política priorizada, donde se da preferencia a las transiciones de `HiloSimple` (T5) sobre las de `HiloMedia` (T2) y `HiloAlta` (T7), se genera un fenómeno emergente coordinado por la exclusividad de la plaza `P6` (procesador físico con 1 token inicial) y el contador global de 200 iteraciones (`counter.getAndIncrement()`). El ciclo opera a través de una alternancia estricta descrita en la siguiente secuencia de eventos:
@@ -60,43 +60,43 @@ Sus únicas instrucciones restantes son sobre su propio Stack local y privado (`
 
 ## 2. Reemplazo de las Colas de Condición
 
-### 1. Descripción del cambio
+### 2.1. Descripción del cambio
 Se eliminó la dependencia de `Condition`, reemplazándolas por un array de semáforos binarios inicializados en 0 (`Semaphore(0, true)`) en `Queue.java`.
 
-### 2. Justificación técnica
+### 2.2. Justificación técnica
 Las variables `Condition` nativas automatizaban la suspensión y liberación del lock de forma fuertemente acoplada a su `ReentrantLock` creador. Para lograr la herencia de mutex, necesitábamos desacoplar ambas acciones por completo. Un semáforo inicializado en 0 actúa como una barrera restrictiva pura: bloquea inmediatamente a cualquier hilo que haga `acquire()`, emulando una cola de espera donde podemos decidir con precisión matemática a quién despertar.
 
-### 3. Impacto del cambio
+### 2.3. Impacto del cambio
 - Control absoluto y explícito sobre el ciclo de suspensión. La semántica de los permisos (1 para libre, 0 para bloqueado) refleja directamente el estado físico del monitor.
 
-### 4. Comparación con la implementación anterior
+### 2.4. Comparación con la implementación anterior
 En la implementación anterior en `Queue.java`, `conditions[i].await()` liberaba el lock y dormía al hilo internamente. En la nueva arquitectura, el hilo primero libera explícitamente la entrada principal (`mutex.release()`) e inmediatamente después se suspende a sí mismo llamando a `condSemaphores[i].acquireUninterruptibly()`, dejando al monitor listo para la herencia del mutex.
 
 ---
 
 ## 3. Rastreo Manual de la Posesión del Mutex (Double-Release Prevention)
 
-### 1. Descripción del cambio
+### 3.1. Descripción del cambio
 Se introdujo una variable lógica de estado `boolean holdingMutex = true` en `Monitor.fireTransition()`. Si el hilo cede el control por herencia o falla en una readquisición temporal, la variable pasa a `false`. El bloque `finally` evalúa esta variable para decidir si debe ejecutar `mutex.release()`.
 
-### 2. Justificación técnica
+### 3.2. Justificación técnica
 Al usar `Semaphore`, perdimos el método nativo `lock.isHeldByCurrentThread()`. Cuando un hilo cede el monitor por herencia, abandona prematuramente el método `fireTransition()`. Si el bloque `finally` ejecutara `mutex.release()` a ciegas (efectuando un double-release), inyectaría un permiso extra al semáforo principal (llevándolo a 2 permisos). 
 Esto rompería instantáneamente la exclusión mutua: permitiría que el hilo despertado internamente y un nuevo hilo externo desde la cola de entrada accedan al mismo tiempo al Heap. El acceso simultáneo a la matriz de marcado de la Red de Petri y a los contadores de hilos (`waitingCounts`) generaría condiciones de carrera y un estado corrupto irrecuperable.
 
-### 3. Impacto del cambio
+### 3.3. Impacto del cambio
 - **Prevención de colisiones:** Asegura matemáticamente que el semáforo principal del monitor solo oscile entre 0 (ocupado) y 1 (libre), manteniendo la barrera de exclusión mutua dentro del monitor.
 
-### 4. Comparación con la implementación anterior
+### 3.4. Comparación con la implementación anterior
 Antes, el `ReentrantLock` internamente rastreaba qué hilo era el propietario del cerrojo y solo le permitía a ese hilo liberarlo. Este mecanismo impedía automáticamente que un hilo ajeno corrompiera el estado del lock. Al migrar a `Semaphore`, donde no existe el concepto de propietario, cualquier hilo puede ejecutar `release()` e inyectar permisos sin restricciones. El rastro de estado `holdingMutex` cumple la función de suplir esa validación ausente, asegurando que solo se libere el mutex cuando el hilo efectivamente lo posee.
 
 ---
 
 ## 4. Blindaje contra Interrupciones Teóricas en la Cola (acquireUninterruptibly)
 
-### 1. Descripción del cambio
+### 4.1. Descripción del cambio
 En `Queue.java`, se reemplazó la espera clásica que capturaba `InterruptedException` por una llamada ininterrumpible: `condSemaphores[transition].acquireUninterruptibly()`.
 
-### 2. Justificación técnica
+### 4.2. Justificación técnica
 El comportamiento de una interrupción sin blindaje en un hilo suspendido en la cola de condición es altamente destructivo para la consistencia del monitor:
 1. Si el hilo es interrumpido en `condSemaphores[transition].acquire()`, se lanza `InterruptedException` y el hilo entra al bloque `catch` sin poseer el mutex.
 2. Aunque el bloque `finally` de Java se ejecuta obligatoriamente y decrementa el contador `waitingCounts[transition]--`, esta modificación del Heap compartido se realiza **sin poseer el mutex del monitor**, lo que genera una condición de carrera inmediata sobre la contabilidad de hilos en espera.
@@ -105,10 +105,10 @@ El comportamiento de una interrupción sin blindaje en un hilo suspendido en la 
 
 Al no estar garantizada la posesión del mutex en todo momento tras despertar (debido al flujo irregular de la interrupción), la contabilidad de las colas y la exclusión mutua del monitor quedan expuestas a fallos de sincronización y potenciales deadlocks.
 
-### 3. Impacto del cambio
+### 4.3. Impacto del cambio
 - **Robustez Extrema:** El método `acquireUninterruptibly()` vuelve al hilo sordo ante las interrupciones mientras está dormido. El hilo se ancla a la cola y se niega a abandonarla hasta que recibe un `release()` legítimo. Las interrupciones son retenidas en el hilo pero no perturban la estricta contabilidad del monitor.
 
-### 4. Comparación con la implementación anterior
+### 4.4. Comparación con la implementación anterior
 En la implementación anterior con `Condition.await()`, la clase interna de sincronización de Java (`AbstractQueuedSynchronizer` o AQS, que es la infraestructura común sobre la cual se implementan `ReentrantLock` y `Semaphore`) gestiona la interrupción de forma transparente: al interrumpirse el hilo, lo mueve automáticamente de la cola de condición a la cola de entrada del lock. El hilo espera allí hasta adquirir el lock y, recién cuando lo posee, se lanza la excepción. Esto garantizaba que el bloque `finally` decrementara `waitingCounts` de manera consistente bajo exclusión mutua.
 
 Si intentáramos replicar este comportamiento de forma interruptible usando semáforos, el flujo sería vulnerable a fallos graves de concurrencia:
