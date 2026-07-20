@@ -1,6 +1,6 @@
 # HilandoJavaFinal
 
-Simulación concurrente de una **Red de Petri Temporal** con monitor de concurrencia basado en **semáforos binarios y semántica Signal-and-Exit**, verificación automática de invariantes y políticas de decisión inyectables. Trabajo Práctico Final de **Programación Concurrente**.
+Simulación concurrente de una **Red de Petri Temporal** con monitor de concurrencia basado en **semáforos binarios y política Signal-and-Exit**, verificación automática de invariantes y políticas de decisión inyectables. Trabajo Práctico Final de **Programación Concurrente**.
 
 ---
 
@@ -55,7 +55,7 @@ Las colas de condición utilizan `acquireUninterruptibly()` para prevenir que un
 | **Monitor Signal-and-Exit** | Exclusión mutua mediante `Semaphore(1, true)` con herencia directa del mutex al señalizar. Colas de condición ininterrumpibles (`acquireUninterruptibly`). |
 | **Políticas de decisión** | Selección de transiciones habilitadas: **aleatoria** (`RandomPolicy`) o **priorizada** (`PriorityFiring`, prioriza T5). |
 | **Verificación de P-invariantes** | Tras cada disparo se verifica que los invariantes de plaza se mantengan (conservación de datos, bus, CPU). |
-| **Verificación de T-invariantes** | Al finalizar, se analiza el log con reducción recursiva por expresiones regulares para validar la estructura de las secuencias de disparo. |
+| **Verificación de T-invariantes** | Al finalizar, se analiza el log con reducción recursiva por expresiones regulares para comprobar su descomposición ordenada en T-invariantes. |
 | **Logging atómico** | El registro de disparos se realiza dentro del monitor (bajo exclusión mutua) para reflejar el orden real de ejecución. |
 | **Transiciones temporales** | Red de Petri con Tiempo (RdPT) bajo semántica de tiempo débil y rangos `[alpha, Long.MAX_VALUE]`. El hilo libera el mutex antes de dormir (`Thread.sleep`) y lo re-adquiere por la cola de entrada al despertar. |
 
@@ -66,7 +66,7 @@ Las colas de condición utilizan `acquireUninterruptibly()` para prevenir que un
 Demostrar la correcta sincronización de hilos concurrentes mediante un monitor Signal-and-Exit basado en Redes de Petri, verificando formalmente que:
 
 1. Los **P-invariantes** (invariantes de plaza) se cumplen en todo momento durante la ejecución.
-2. Los **T-invariantes** (invariantes de transición) se verifican sobre el log final mediante reducción recursiva por expresiones regulares.
+2. Los **T-invariantes** (invariantes de transición) se verifican sobre el log final mediante su descomposición ordenada por reducción recursiva con expresiones regulares.
 3. No existen **deadlocks** ni **condiciones de carrera** gracias al diseño del monitor con semáforos binarios y herencia del mutex.
 4. La **Liveness (viveza)** de la red está garantizada matemáticamente por los T-Invariantes: cada token consumido es producido por otro hilo en el ciclo, asegurando que ningún hilo se quede dormido eternamente.
 
@@ -114,12 +114,13 @@ El programa ejecuta 200 invariantes completos (200 datos de entrada -> procesami
 
 Al finalizar, el programa genera un archivo de log (`log_random.txt` o `log_priority.txt`) y verifica automáticamente los T-invariantes.
 
-### Salida esperada
+### Ejemplo de salida
+
+El tiempo y la distribución entre caminos pueden variar en cada ejecución.
 
 ```
 Politica: ALEATORIA
 Tiempo de ejecucion: ~30000 ms
-Log cargado correctamente. Transiciones: 1195
 --- Invariantes de transición detectados (reducción recursiva) ---
 IT1 - Complejidad media (T0-T1-T2-T3-T4-T11)    : 67
 IT2 - Complejidad simple (T0-T1-T5-T6-T11)      : 69
@@ -166,6 +167,9 @@ java -cp target/HilandoJavaFinal-1.0-SNAPSHOT.jar tpfinal.Main priority
 mvn test
 ```
 
+Los tests de `RELog` se concentran en los tres patrones de T-invariantes, el
+interleaving y las transiciones residuales producidas por la reducción.
+
 ### Limpiar artefactos de compilación
 
 ```bash
@@ -176,15 +180,24 @@ mvn clean
 
 ## Validación de Logs con RELog (Testing de Invariantes)
 
-El proyecto incluye la herramienta `RELog` que permite analizar y validar archivos de log de forma autónoma e independiente, sin necesidad de lanzar la simulación completa. Esto es ideal para realizar pruebas de regresión, simular fallos de sincronización y testear la robustez del verificador.
+El proyecto incluye la herramienta `RELog`, que permite analizar archivos de
+log de forma autónoma sin lanzar la simulación completa. Esto facilita las
+pruebas de regresión y la inspección manual de trazas alteradas respecto de los
+T-invariantes esperados.
 
 ### Algoritmo de Validación
-`RELog` implementa un algoritmo de **reducción recursiva por expresiones regulares**. Analiza el flujo buscando ciclos completos de transiciones según los T-invariantes de la red:
+`RELog` implementa una **reducción recursiva por expresiones regulares** mediante
+un ciclo iterativo. En cada pasada busca T-invariantes completos, elimina sus
+transiciones obligatorias, conserva las transiciones intercaladas y vuelve a
+procesar la traza resultante hasta que no encuentra nuevas coincidencias:
 *   **Complejidad media**: `T0 -> T1 -> T2 -> T3 -> T4 -> T11`
 *   **Complejidad simple**: `T0 -> T1 -> T5 -> T6 -> T11`
 *   **Complejidad alta**: `T0 -> T1 -> T7 -> T8 -> T9 -> T10 -> T11`
 
-Si un ciclo se completa con éxito, es extraído de la traza manteniendo intacto el orden del resto de las transiciones concurrentes (interleaving). El proceso se repite hasta que no hay más coincidencias. Si el archivo es válido, la traza se reduce por completo a vacío.
+Una traza es válida cuando se detecta al menos un T-invariante y todas sus
+transiciones pueden consumirse mediante esta reducción. El análisis comprueba
+la descomposición ordenada en T-invariantes: no reproduce el marcado de la red
+ni verifica habilitación o restricciones temporales de los disparos.
 
 ### Modos de Ejecución
 
@@ -206,6 +219,29 @@ Para validar cualquier archivo de log en una ruta arbitraria (por ejemplo, para 
 java -cp target/classes tpfinal.utils.RELog /ruta/al/archivo_de_log.txt
 ```
 
+El archivo debe contener exactamente una transición `T0` a `T11` por línea.
+Se ignoran las líneas vacías y los espacios laterales, pero un archivo sin
+transiciones o con tokens inválidos se considera un error de entrada.
+
+La ejecución devuelve un código estable para facilitar su uso desde scripts:
+
+| Código | Significado |
+|---:|---|
+| `0` | La traza contiene ciclos completos y se redujo sin residuos |
+| `1` | La entrada es correcta, pero la traza no cumple los T-invariantes |
+| `2` | Argumentos, lectura o formato de entrada incorrectos |
+| `3` | Error interno inesperado |
+
+En Bash puede consultarse el código inmediatamente después de ejecutar RELog:
+
+```bash
+java -cp target/classes tpfinal.utils.RELog random
+echo $?
+```
+
+Los informes de validación se escriben en la salida estándar y los errores de
+uso, lectura o formato se escriben en la salida de error.
+
 #### Ejemplo práctico de Testing Manual (Inyección de Errores)
 
 1. **Generar un log válido:**
@@ -223,12 +259,13 @@ java -cp target/classes tpfinal.utils.RELog /ruta/al/archivo_de_log.txt
    ```
 4. **Resultado esperado de error:**
    El validador rechazará el log indicando qué invariantes logró rescatar y listando con precisión las transiciones huérfanas que no pudieron asociarse a ningún ciclo:
+   Los contadores siguientes son ilustrativos y pueden variar según el log generado.
    ```text
    --- Invariantes de transición detectados (reducción recursiva) ---
-   IT1 - Complejidad media (T0-T1-T2-T3-T4-T11)  : 65
-   IT2 - Complejidad simple (T0-T1-T5-T6-T11)    : 69
-   IT3 - Complejidad alta (T0-T1-T7-T8-T9-T10-T11): 65
-   Coincidencias (ciclos válidos)                : 199
+   IT1 - Complejidad media (T0-T1-T2-T3-T4-T11)    : 65
+   IT2 - Complejidad simple (T0-T1-T5-T6-T11)      : 69
+   IT3 - Complejidad alta (T0-T1-T7-T8-T9-T10-T11) : 65
+   Coincidencias (ciclos válidos)                  : 199
    --- Resultado ---
    VALIDACION DE INVARIANTES FALLIDA
    Transiciones restantes: T0T1T7T8T9T10
