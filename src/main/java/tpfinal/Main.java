@@ -71,8 +71,7 @@ public class Main {
         logger.writeToFile(logFile);
 
         RELog reLog = new RELog();
-        reLog.loadLog(logFile);
-        reLog.checkInvariant();
+        reLog.checkInvariant(logFile);
 
         System.out.println("Programa finalizado. No quedan hilos activos.");
     }
