@@ -47,9 +47,13 @@ public class Monitor implements MonitorInterface {
      * Si es temporal y está antes del EFT (alpha), duerme al hilo liberando el mutex y re-evalúa al despertar.
      * @param transition Índice de la transición que se intenta disparar
      * @return true si la transición se disparó y registró exitosamente
+     * @throws IllegalArgumentException si el índice no corresponde a una transición de la red
      */
     @Override
     public boolean fireTransition(int transition) {
+        // Validar el índice antes de adquirir el mutex evita bloquear el monitor si fromIndex() falla.
+        Transitions transitionEnum = Transitions.fromIndex(transition);
+
         // Intentar entrar al monitor (adquirir el mutex)
         try {
             mutex.acquire();
@@ -62,7 +66,6 @@ public class Monitor implements MonitorInterface {
         // Usamos holdingMutex para rastrear lógicamente la posesión y evitar que el bloque finally 
         // libere el mutex si ya lo cedimos por herencia (Signal-and-Exit) o si fallamos en adquirirlo.
         boolean holdingMutex = true;
-        Transitions transitionEnum = Transitions.fromIndex(transition);
 
         try {
             while (true) {
